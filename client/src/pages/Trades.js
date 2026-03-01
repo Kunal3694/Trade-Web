@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import Layout from '../components/Layout';
 
 const Trades = () => {
     const [trades, setTrades] = useState([]);
     const [filteredTrades, setFilteredTrades] = useState([]);
-    
+
     // Filters State
     const [search, setSearch] = useState('');
     const [typeFilter] = useState('ALL');
@@ -16,7 +16,7 @@ const Trades = () => {
         const fetchTrades = async () => {
             try {
                 // Ensure this URL matches your backend
-                const { data } = await axios.get('http://localhost:5000/api/trades');
+                const { data } = await api.get('/trades/my-allocations/list');
                 setTrades(data);
                 setFilteredTrades(data);
             } catch (error) {
@@ -31,16 +31,13 @@ const Trades = () => {
         let temp = trades;
 
         if (search) {
-            temp = temp.filter(t => t.script.toLowerCase().includes(search.toLowerCase()));
-        }
-        if (typeFilter !== 'ALL') {
-            temp = temp.filter(t => t.type === typeFilter);
+            temp = temp.filter(t => t.master_trade_id?.symbol.toLowerCase().includes(search.toLowerCase()));
         }
         if (startDate) {
-            temp = temp.filter(t => new Date(t.date) >= new Date(startDate));
+            temp = temp.filter(t => new Date(t.buy_timestamp) >= new Date(startDate));
         }
         if (endDate) {
-            temp = temp.filter(t => new Date(t.date) <= new Date(endDate));
+            temp = temp.filter(t => new Date(t.buy_timestamp) <= new Date(endDate));
         }
         setFilteredTrades(temp);
     };
@@ -48,11 +45,11 @@ const Trades = () => {
     return (
         <Layout title="Trade History">
             <div className="card">
-                <div style={{display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem'}}>
-                    <input type="text" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} style={{padding: '8px'}} />
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+                    <input type="text" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ padding: '8px' }} />
                     <button className="btn btn-primary" onClick={handleFilter}>Filter</button>
                 </div>
-                <table style={{width: '100%'}}>
+                <table style={{ width: '100%' }}>
                     <thead>
                         <tr>
                             <th>Date</th>
@@ -64,10 +61,10 @@ const Trades = () => {
                     <tbody>
                         {filteredTrades.map(t => (
                             <tr key={t._id}>
-                                <td>{new Date(t.date).toLocaleDateString()}</td>
-                                <td>{t.script}</td>
-                                <td>{t.type}</td>
-                                <td>{t.total}</td>
+                                <td>{new Date(t.buy_timestamp).toLocaleDateString()}</td>
+                                <td>{t.master_trade_id?.symbol}</td>
+                                <td>BUY</td>
+                                <td>{t.total_value}</td>
                             </tr>
                         ))}
                     </tbody>

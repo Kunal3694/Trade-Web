@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 
 const allocationSchema = new mongoose.Schema({
+    allocation_id: { type: String },
     master_trade_id: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Trade",
@@ -10,14 +11,19 @@ const allocationSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    quantity: Number,
-    buy_price: Number,
-    sell_price: Number,
-    pnl: Number,
+    allocation_qty: { type: Number, required: true },
+    allocation_price: { type: Number, required: true },
+    total_value: { type: Number, required: true },
+    buy_timestamp: { type: Date, default: Date.now },
+    exit_price: { type: Number },
+    exit_value: { type: Number },
+    client_pnl: { type: Number, default: 0 },
     status: {
         type: String,
-        default: "open"
-    }
+        default: "OPEN",
+        enum: ["OPEN", "CLOSED"]
+    },
+    sell_timestamp: { type: Date }
 }, { timestamps: true });
 
 allocationSchema.index({ mob_num: 1 });

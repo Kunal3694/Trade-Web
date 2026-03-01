@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 
 const Login = () => {
     const [isAdminMode, setIsAdminMode] = useState(false);
@@ -12,33 +12,21 @@ const Login = () => {
     const handleLogin = async (e) => {
         e.preventDefault();
 
-        if (mob_num === '1234567890') {
-            if (isAdminMode && password === 'admin123') {
-                localStorage.setItem('userInfo', JSON.stringify({ user: { status: 'active', role: 'admin' } }));
-                navigate('/admin-dashboard');
-                return;
-            } else if (!isAdminMode && password === 'user123') {
-                localStorage.setItem('userInfo', JSON.stringify({ user: { status: 'active', role: 'client' } }));
-                navigate('/');
-                return;
-            } else {
-                setError('Invalid temporary password for the selected role.');
-                return;
-            }
-        }
+
 
         try {
-            const { data } = await axios.post('http://localhost:5000/api/users/login', {
-                mob_num, 
+            const { data } = await api.post('/users/login', {
+                mob_num,
                 password
             });
 
             localStorage.setItem('userInfo', JSON.stringify(data));
-
-            if (data.user.status === 'active') {
-                 navigate(isAdminMode ? '/admin-dashboard' : '/');
+            if (data.user.role === 'admin') {
+                navigate('/admin-dashboard');
+            } else if (data.user.status === 'active') {
+                navigate('/');
             } else {
-                 setError('Account is not active');
+                setError('Account is not active');
             }
 
         } catch (err) {
@@ -51,8 +39,8 @@ const Login = () => {
             height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
             backgroundColor: 'var(--bg-body)', color: 'var(--text-main)'
         }}>
-            <div className="card" style={{width: '100%', maxWidth: '400px', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem'}}>
-                
+            <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
                 <div style={{
                     textAlign: 'center', color: '#fbbf24', fontSize: '0.85rem', fontWeight: 'bold',
                     padding: '10px', backgroundColor: 'rgba(251, 191, 36, 0.1)', borderRadius: '6px'
@@ -60,19 +48,19 @@ const Login = () => {
                     ⚠️ DISCLAIMER: No real money involved. This is a simulation.
                 </div>
 
-                <div style={{textAlign: 'center'}}>
+                <div style={{ textAlign: 'center' }}>
                     <div style={{
                         width: '48px', height: '48px', background: 'var(--primary)', borderRadius: '12px',
                         display: 'grid', placeItems: 'center', color: 'white', fontSize: '1.5rem', margin: '0 auto 1rem'
                     }}>
                         <i className="fas fa-layer-group"></i>
                     </div>
-                    <h2 style={{fontSize: '1.5rem', fontWeight: '700'}}>BrokerConnect</h2>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>BrokerConnect</h2>
                 </div>
 
-                <div style={{display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: '0.5rem'}}>
-                    <button 
-                        type="button" 
+                <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: '0.5rem' }}>
+                    <button
+                        type="button"
                         onClick={() => setIsAdminMode(false)}
                         style={{
                             flex: 1, padding: '10px', background: 'none', border: 'none', cursor: 'pointer',
@@ -83,8 +71,8 @@ const Login = () => {
                     >
                         User Login
                     </button>
-                    <button 
-                        type="button" 
+                    <button
+                        type="button"
                         onClick={() => setIsAdminMode(true)}
                         style={{
                             flex: 1, padding: '10px', background: 'none', border: 'none', cursor: 'pointer',
@@ -103,36 +91,36 @@ const Login = () => {
                 }}>{error}</div>}
 
                 <form onSubmit={handleLogin}>
-                    <div style={{marginBottom: '1.2rem'}}>
-                        <label style={{display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500'}}>Mobile Number</label>
-                        <input 
-                            type="text" 
-                            className="form-control" 
-                            value={mob_num} 
+                    <div style={{ marginBottom: '1.2rem' }}>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>Mobile Number</label>
+                        <input
+                            type="text"
+                            className="form-control"
+                            value={mob_num}
                             onChange={(e) => setMobNum(e.target.value)}
-                            style={{width: '100%', padding: '12px', background: 'var(--bg-body)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', outline: 'none'}}
+                            style={{ width: '100%', padding: '12px', background: 'var(--bg-body)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', outline: 'none' }}
                             placeholder="Enter mobile number"
                             required
                         />
                     </div>
-                    <div style={{marginBottom: '1.5rem'}}>
-                        <label style={{display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500'}}>Password</label>
-                        <input 
-                            type="password" 
-                            className="form-control" 
-                            value={password} 
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: '500' }}>Password</label>
+                        <input
+                            type="password"
+                            className="form-control"
+                            value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            style={{width: '100%', padding: '12px', background: 'var(--bg-body)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', outline: 'none'}}
+                            style={{ width: '100%', padding: '12px', background: 'var(--bg-body)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', outline: 'none' }}
                             placeholder="Enter password"
                             required
                         />
                     </div>
-                    <button type="submit" className="btn btn-primary" style={{width: '100%', padding: '12px', fontSize: '1rem', fontWeight: '600'}}>
+                    <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px', fontSize: '1rem', fontWeight: '600' }}>
                         {isAdminMode ? 'Admin Login' : 'User Login'}
                     </button>
                 </form>
 
-                <div style={{textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem', lineHeight: '1.4'}}>
+                <div style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem', lineHeight: '1.4' }}>
                     {!isAdminMode ? (
                         <span>Forgot password? Contact admin for new password.</span>
                     ) : (

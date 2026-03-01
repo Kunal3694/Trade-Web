@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import Layout from '../components/Layout';
 
 const Ledger = () => {
@@ -9,8 +9,8 @@ const Ledger = () => {
     useEffect(() => {
         const fetchLedger = async () => {
             try {
-                const { data } = await axios.get('http://localhost:5000/api/ledger');
-                
+                const { data } = await api.get('/ledger');
+
                 // Calculate Running Balance on the Frontend for display accuracy
                 let currentBal = 0;
                 const calculatedData = data.map(entry => {
@@ -31,42 +31,42 @@ const Ledger = () => {
     return (
         <Layout title="Ledger Book">
             <div className="card">
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.5rem', flexWrap: 'wrap', gap: '10px'}}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '10px' }}>
                     <div>
-                        <h2 style={{fontSize:'1.2rem'}}>Client Ledger</h2>
-                        <p className="text-muted" style={{fontSize:'0.9rem'}}>Account: XC-1029 (John Doe)</p>
+                        <h2 style={{ fontSize: '1.2rem' }}>Client Ledger</h2>
+                        <p className="text-muted" style={{ fontSize: '0.9rem' }}>Account: XC-1029 (John Doe)</p>
                     </div>
-                    <div style={{textAlign:'right'}}>
-                        <div style={{fontSize:'0.8rem', color:'var(--text-muted)'}}>Closing Balance</div>
-                        <div className="text-up" style={{fontSize:'1.5rem', fontWeight:'700'}}>
+                    <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Closing Balance</div>
+                        <div className="text-up" style={{ fontSize: '1.5rem', fontWeight: '700' }}>
                             ₹ {runningBalance.toLocaleString()}
                         </div>
                     </div>
                 </div>
 
-                <div style={{overflowX: 'auto'}}>
-                    <table style={{width: '100%', borderCollapse: 'separate', borderSpacing: '0'}}>
+                <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0' }}>
                         <thead>
-                            <tr style={{textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase'}}>
-                                <th style={{padding: '12px', borderBottom: '2px solid var(--border)'}}>Date</th>
-                                <th style={{padding: '12px', borderBottom: '2px solid var(--border)'}}>Particulars</th>
-                                <th style={{padding: '12px', borderBottom: '2px solid var(--border)', textAlign:'right'}}>Debit</th>
-                                <th style={{padding: '12px', borderBottom: '2px solid var(--border)', textAlign:'right'}}>Credit</th>
-                                <th style={{padding: '12px', borderBottom: '2px solid var(--border)', textAlign:'right'}}>Running Bal</th>
+                            <tr style={{ textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>
+                                <th style={{ padding: '12px', borderBottom: '2px solid var(--border)' }}>Date</th>
+                                <th style={{ padding: '12px', borderBottom: '2px solid var(--border)' }}>Particulars</th>
+                                <th style={{ padding: '12px', borderBottom: '2px solid var(--border)', textAlign: 'right' }}>Debit</th>
+                                <th style={{ padding: '12px', borderBottom: '2px solid var(--border)', textAlign: 'right' }}>Credit</th>
+                                <th style={{ padding: '12px', borderBottom: '2px solid var(--border)', textAlign: 'right' }}>Running Bal</th>
                             </tr>
                         </thead>
                         <tbody>
                             {ledger.map(row => (
                                 <tr key={row._id}>
-                                    <td style={{padding: '14px 12px', borderBottom: '1px solid var(--border)'}}>{new Date(row.date).toLocaleDateString()}</td>
-                                    <td style={{padding: '14px 12px', borderBottom: '1px solid var(--border)'}}>{row.description}</td>
-                                    <td style={{padding: '14px 12px', borderBottom: '1px solid var(--border)', textAlign:'right', fontFamily:'monospace', color:'var(--danger)'}}>
+                                    <td style={{ padding: '14px 12px', borderBottom: '1px solid var(--border)' }}>{new Date(row.date).toLocaleDateString()}</td>
+                                    <td style={{ padding: '14px 12px', borderBottom: '1px solid var(--border)' }}>{row.description}</td>
+                                    <td style={{ padding: '14px 12px', borderBottom: '1px solid var(--border)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--danger)' }}>
                                         {row.debit > 0 ? row.debit.toLocaleString() : '-'}
                                     </td>
-                                    <td style={{padding: '14px 12px', borderBottom: '1px solid var(--border)', textAlign:'right', fontFamily:'monospace', color:'var(--success)'}}>
+                                    <td style={{ padding: '14px 12px', borderBottom: '1px solid var(--border)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--success)' }}>
                                         {row.credit > 0 ? row.credit.toLocaleString() : '-'}
                                     </td>
-                                    <td style={{padding: '14px 12px', borderBottom: '1px solid var(--border)', textAlign:'right', fontWeight:'700', fontFamily:'monospace'}}>
+                                    <td style={{ padding: '14px 12px', borderBottom: '1px solid var(--border)', textAlign: 'right', fontWeight: '700', fontFamily: 'monospace' }}>
                                         ₹ {row.balance.toLocaleString()}
                                     </td>
                                 </tr>

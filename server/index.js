@@ -7,7 +7,7 @@ const connectDB = require('./config/db');
 const tradeRoutes = require('./routes/tradeRoutes');
 const ledgerRoutes = require('./routes/ledgerRoutes');
 const userRoutes = require("./routes/userRoutes");
-const authMiddleware = require("./middleware/authMiddleware");
+const { authMiddleware } = require("./middleware/authMiddleware");
 
 // Load env vars
 dotenv.config();
@@ -27,11 +27,11 @@ app.use("/api/users", userRoutes);
 
 // Basic Route for testing
 app.get('/', (req, res) => {
-    res.send('API is running...');
+  res.send('API is running...');
 });
 
 app.get("/api/protected", authMiddleware, (req, res) => {
-    res.json({ msg: "Protected route working ✅", user: req.user });
+  res.json({ msg: "Protected route working ✅", user: req.user });
 })
 
 const PORT = process.env.PORT || 5000;

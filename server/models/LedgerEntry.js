@@ -1,17 +1,18 @@
 const mongoose = require('mongoose');
 
-const ledgerEntrySchema = mongoose.Schema({
-    mob_num: { 
-        type: String, 
-        required: true 
+const ledgerEntrySchema = new mongoose.Schema({
+    mob_num: {
+        type: String,
+        required: true
     },
-    date: { type: Date, required: true },
-    description: { type: String, required: true },
-    debit: { type: Number, default: 0 },
-    credit: { type: Number, default: 0 },
-    balance: { type: Number, default: 0 }
+    entry_date: { type: Date, default: Date.now },
+    act_type: { type: String, enum: ['TRADE', 'CREDIT', 'DEBIT'], required: true },
+    amt_cr: { type: Number, default: 0 },
+    amt_dr: { type: Number, default: 0 },
+    cls_balance: { type: Number, default: 0 },
+    description: { type: String }
 }, { timestamps: true });
+
 ledgerEntrySchema.index({ mob_num: 1 });
 
 module.exports = mongoose.model('LedgerEntry', ledgerEntrySchema);
-

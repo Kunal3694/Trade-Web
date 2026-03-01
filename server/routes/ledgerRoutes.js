@@ -1,15 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const LedgerEntry = require('../models/LedgerEntry');
+const { getLedgerEntries } = require('../controllers/ledgerController');
+const { authMiddleware } = require('../middleware/authMiddleware');
 
-router.get('/', async (req, res) => {
-    try {
-        // Get entries sorted by date
-        const entries = await LedgerEntry.find().sort({ date: 1 });
-        res.json(entries);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-});
+// Get ledger entries (Logic inside handles whether it's admin or user)
+router.get('/', authMiddleware, getLedgerEntries);
 
 module.exports = router;

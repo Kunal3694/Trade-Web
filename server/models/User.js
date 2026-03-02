@@ -1,10 +1,6 @@
 const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
-  client_id: {
-    type: String,
-    unique: true
-  },
   user_name: {
     type: String,
     required: true
@@ -26,14 +22,14 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  role: {
-    type: String,
-    enum: ["admin", "user"],
-    default: "user"
-  },
   status: {
     type: String,
     default: "active"
+  },
+  role: {
+    type: String,
+    default: "client",
+    enum: ["client", "admin"] // Ensures only these two roles exist
   }
 }, { timestamps: true });
 

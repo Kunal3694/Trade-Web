@@ -15,4 +15,4 @@ const tradeSchema = new mongoose.Schema({
     status: { type: String, default: 'OPEN', enum: ['OPEN', 'CLOSED'] }
 }, { timestamps: true });
 
-module.exports = mongoose.model('Trade', tradeSchema);
+module.exports = mongoose.model('Trade', tradeSchema);  

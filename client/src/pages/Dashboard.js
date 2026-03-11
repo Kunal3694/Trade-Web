@@ -9,21 +9,26 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 
 const Dashboard = () => {
     const [trades, setTrades] = useState([]);
+    const [ledgerSummary, setLedgerSummary] = useState(null);
     const [metrics, setMetrics] = useState({
         totalPnL: 0,
         completedTrades: 0,
         winRate: 0,
-        invested: 0
+        invested: 0,
+        currentValue: 0
     });
 
     // 1. Fetch Data from Backend
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // Fetch User's Allocated Trades
-                const { data } = await api.get('/trades/my-allocations/list');
-                setTrades(data);
-                calculateMetrics(data);
+                const [tradesRes, ledgerRes] = await Promise.all([
+                    api.get('/trades/my-allocations/list'),
+                    api.get('/ledger/summary')
+                ]);
+                setTrades(tradesRes.data);
+                setLedgerSummary(ledgerRes.data);
+                calculateMetrics(tradesRes.data, ledgerRes.data);
             } catch (error) {
                 console.error("Error fetching data:", error);
             }
@@ -32,28 +37,30 @@ const Dashboard = () => {
     }, []);
 
     // 2. Calculate Dashboard Numbers on the fly using NEW schema fields
-    const calculateMetrics = (data) => {
-        let pnl = 0;
+    const calculateMetrics = (data, ledger) => {
+        let pnl = ledger.previousProfit || 0;
         let wins = 0;
         let completed = 0;
         let investedAmount = 0;
+        let currentValueAmount = 0;
 
         data.forEach(trade => {
             if (trade.status === 'CLOSED') {
-                pnl += (trade.client_pnl || 0);
                 completed++;
                 if (trade.client_pnl > 0) wins++;
             }
             if (trade.status === 'OPEN') {
                 investedAmount += (trade.total_value || 0);
+                currentValueAmount += (trade.current_value || 0);
             }
         });
 
         setMetrics({
-            totalPnL: pnl,
+            totalPnL: ledger.previousProfit + ledger.currentPL,
             completedTrades: completed,
             winRate: completed > 0 ? ((wins / completed) * 100).toFixed(0) : 0,
-            invested: investedAmount
+            invested: investedAmount,
+            currentValue: currentValueAmount
         });
     };
 
@@ -85,9 +92,9 @@ const Dashboard = () => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
 
                 <div className="card" style={{ borderLeft: '4px solid var(--primary)' }}>
-                    <div className="metric-label" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '8px' }}>Net Liquidation Value</div>
-                    <div style={{ fontSize: '1.8rem', fontWeight: '700' }}>₹ {(453450 + metrics.totalPnL).toLocaleString()}</div>
-                    <div className="text-up" style={{ fontSize: '0.85rem', marginTop: '8px' }}><i className="fas fa-arrow-up"></i> Live Value</div>
+                    <div className="metric-label" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '8px' }}>Total Balance</div>
+                    <div style={{ fontSize: '1.8rem', fontWeight: '700' }}>₹ {ledgerSummary?.totalBalance?.toLocaleString() || 0}</div>
+                    <div className="text-up" style={{ fontSize: '0.85rem', marginTop: '8px' }}>Combined Ledger Balance</div>
                 </div>
 
                 <div className="card" style={{ borderLeft: '4px solid var(--success)' }}>
@@ -99,9 +106,9 @@ const Dashboard = () => {
                 </div>
 
                 <div className="card" style={{ borderLeft: '4px solid var(--secondary)' }}>
-                    <div className="metric-label" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '8px' }}>Holdings Value</div>
-                    <div style={{ fontSize: '1.8rem', fontWeight: '700' }}>₹ {metrics.invested.toLocaleString()}</div>
-                    <div style={{ fontSize: '0.85rem', marginTop: '8px', color: 'var(--text-muted)' }}>Invested Amount</div>
+                    <div className="metric-label" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '8px' }}>Current Value</div>
+                    <h3>₹ {metrics.currentValue.toLocaleString()}</h3>
+                    <div style={{ fontSize: '0.85rem', marginTop: '8px', color: 'var(--text-muted)' }}>Invested: ₹ {metrics.invested.toLocaleString()}</div>
                 </div>
 
                 <div className="card" style={{ borderLeft: '4px solid var(--danger)' }}>
@@ -170,6 +177,43 @@ const Dashboard = () => {
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            {/* Ledger Breakdown Table */}
+            <div className="card" style={{ marginTop: '2rem' }}>
+                <h3 style={{ fontSize: '1rem', marginBottom: '1rem' }}>Ledger Breakdown</h3>
+                {ledgerSummary ? (
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0' }}>
+                            <thead>
+                                <tr style={{ textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>
+                                    <th style={{ padding: '12px', borderBottom: '2px solid var(--border)' }}>Base Deposit</th>
+                                    <th style={{ padding: '12px', borderBottom: '2px solid var(--border)' }}>Previous Profit</th>
+                                    <th style={{ padding: '12px', borderBottom: '2px solid var(--border)' }}>Current P&L</th>
+                                    <th style={{ padding: '12px', borderBottom: '2px solid var(--border)' }}>Total Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style={{ padding: '14px 12px', fontWeight: '600', fontFamily: 'monospace' }}>
+                                        ₹ {ledgerSummary.baseDeposit.toLocaleString()}
+                                    </td>
+                                    <td style={{ padding: '14px 12px', fontWeight: '600', fontFamily: 'monospace', color: ledgerSummary.previousProfit >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                                        {ledgerSummary.previousProfit >= 0 ? '+' : ''}₹ {ledgerSummary.previousProfit.toLocaleString()}
+                                    </td>
+                                    <td style={{ padding: '14px 12px', fontWeight: '600', fontFamily: 'monospace', color: ledgerSummary.currentPL >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                                        {ledgerSummary.currentPL >= 0 ? '+' : ''}₹ {ledgerSummary.currentPL.toLocaleString()}
+                                    </td>
+                                    <td style={{ padding: '14px 12px', fontWeight: '700', fontFamily: 'monospace', fontSize: '1.1rem' }}>
+                                        ₹ {ledgerSummary.totalBalance.toLocaleString()}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <p className="text-muted">Loading ledger data...</p>
+                )}
             </div>
         </Layout>
     );

@@ -2,13 +2,13 @@ const Trade = require('../models/Trade');
 const User = require('../models/User');
 const AllocationTrade = require('../models/AllocationTrade');
 const LedgerEntry = require('../models/LedgerEntry');
-const yahooFinance = require('yahoo-finance2').default;
+const DailyPriceFlag = require('../models/DailyPriceFlag');
 
 // @desc    Create a new Master Trade
 // @route   POST /api/trades
 const createTrade = async (req, res) => {
     try {
-        const { symbol, total_qty, buy_price } = req.body;
+        const { symbol, total_qty, buy_price, buy_brokerage } = req.body;
         const total_cost = total_qty * buy_price;
 
         const master_trade_id = "MT-" + Date.now() + Math.floor(Math.random() * 1000);
@@ -18,6 +18,7 @@ const createTrade = async (req, res) => {
             symbol,
             total_qty,
             buy_price,
+            buy_brokerage: buy_brokerage ? Number(buy_brokerage) : 0,
             total_cost,
             allocation_tab: false,
             status: "OPEN"
@@ -40,9 +41,10 @@ const allocateTrade = async (req, res) => {
         if (!trade) return res.status(404).json({ message: "Trade not found" });
         if (trade.status === 'CLOSED') return res.status(400).json({ message: "Cannot allocate a closed trade" });
 
+        const allocatedSoFar = trade.allocated_qty || 0;
         const totalAllocated = allocations.reduce((sum, alloc) => sum + Number(alloc.allocation_qty), 0);
-        if (totalAllocated > trade.total_qty) {
-            return res.status(400).json({ message: "Total allocation exceeds master trade quantity" });
+        if (allocatedSoFar + totalAllocated > trade.total_qty) {
+            return res.status(400).json({ message: "Total allocation exceeds remaining master trade quantity" });
         }
 
         const allocationDocs = [];
@@ -67,7 +69,10 @@ const allocateTrade = async (req, res) => {
 
         if (allocationDocs.length > 0) {
             await AllocationTrade.insertMany(allocationDocs);
-            trade.allocation_tab = true;
+            trade.allocated_qty = allocatedSoFar + totalAllocated;
+            if (trade.allocated_qty >= trade.total_qty) {
+                trade.allocation_tab = true;
+            }
             await trade.save();
         }
 
@@ -82,7 +87,7 @@ const allocateTrade = async (req, res) => {
 const closeTrade = async (req, res) => {
     try {
         const { id } = req.params;
-        const { sell_price } = req.body;
+        const { sell_price, sell_brokerage } = req.body;
 
         const trade = await Trade.findById(id);
         if (!trade) return res.status(404).json({ message: "Trade not found" });
@@ -90,9 +95,10 @@ const closeTrade = async (req, res) => {
 
         // Calculate Master P&L
         trade.sell_price = sell_price;
+        trade.sell_brokerage = sell_brokerage ? Number(sell_brokerage) : 0;
         trade.sell_timestamp = new Date();
         trade.total_exit_value = trade.total_qty * sell_price;
-        trade.master_pnl = trade.total_exit_value - trade.total_cost;
+        trade.master_pnl = trade.total_exit_value - trade.total_cost - (trade.buy_brokerage || 0) - trade.sell_brokerage;
         trade.status = 'CLOSED';
 
         // Find & Close all allocations for this trade
@@ -102,16 +108,37 @@ const closeTrade = async (req, res) => {
             alloc.exit_price = sell_price;
             alloc.sell_timestamp = new Date();
             alloc.exit_value = alloc.allocation_qty * sell_price;
-            alloc.client_pnl = alloc.exit_value - alloc.total_value;
+
+            // Core P&L difference
+            const raw_client_pnl = alloc.exit_value - alloc.total_value;
+
+            // Fetch User to determine bespoke brokerage rate
+            const user = await User.findOne({ mob_num: alloc.mob_num });
+
+            // Apply unique brokerage ONLY if the trade was profitable
+            let final_client_pnl = raw_client_pnl;
+            let brokerage_applied = 0;
+            let user_brokerage_rate = user && user.brokerage !== undefined ? user.brokerage : 2; // Default 2%
+
+            if (raw_client_pnl > 0) {
+                brokerage_applied = raw_client_pnl * (user_brokerage_rate / 100);
+                final_client_pnl = raw_client_pnl - brokerage_applied;
+            }
+
+            alloc.client_pnl = final_client_pnl;
             alloc.status = 'CLOSED';
             await alloc.save();
 
             // Create Ledger Entry and update User balance
-            const user = await User.findOne({ mob_num: alloc.mob_num });
             if (user) {
-                const amt_cr = alloc.client_pnl > 0 ? alloc.client_pnl : 0;
-                const amt_dr = alloc.client_pnl < 0 ? Math.abs(alloc.client_pnl) : 0;
+                const amt_cr = final_client_pnl > 0 ? final_client_pnl : 0;
+                const amt_dr = final_client_pnl < 0 ? Math.abs(final_client_pnl) : 0;
                 const cls_balance = user.current_balance + amt_cr - amt_dr;
+
+                let desc = `P&L for closed trade ${trade.symbol}`;
+                if (brokerage_applied > 0) {
+                    desc += ` (deducted ${user_brokerage_rate}% brokerage: ₹${brokerage_applied.toFixed(2)})`;
+                }
 
                 await LedgerEntry.create({
                     mob_num: user.mob_num,
@@ -119,7 +146,7 @@ const closeTrade = async (req, res) => {
                     amt_cr,
                     amt_dr,
                     cls_balance,
-                    description: `P&L for closed trade ${trade.symbol}`
+                    description: desc
                 });
 
                 user.current_balance = cls_balance;
@@ -129,6 +156,39 @@ const closeTrade = async (req, res) => {
 
         await trade.save();
         res.status(200).json({ message: "Trade closed successfully", trade });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Trigger a daily price flag (TEM_OPEN or TEM_CLOSE)
+// @route   POST /api/trades/:id/trigger-flag
+const triggerFlag = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { day, flagType, activePrice } = req.body;
+
+        const trade = await Trade.findById(id);
+        if (!trade) return res.status(404).json({ message: "Trade not found" });
+
+        const currentHour = new Date().getHours();
+
+        // Time controls
+        if (flagType === 'TEM_OPEN' && currentHour >= 13) {
+            return res.status(400).json({ message: "TEM_OPEN can only be triggered before 1:00 PM (13:00)" });
+        }
+        if (flagType === 'TEM_CLOSE' && currentHour >= 18) {
+            return res.status(400).json({ message: "TEM_CLOSE can only be triggered before 6:00 PM (18:00)" });
+        }
+
+        const flag = await DailyPriceFlag.create({
+            tradeId: trade._id,
+            day,
+            flagType,
+            activePrice
+        });
+
+        res.status(201).json({ message: "Flag triggered successfully", flag });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -151,7 +211,26 @@ const getClientAllocations = async (req, res) => {
     try {
         const allocations = await AllocationTrade.find({ mob_num: req.user.mob_num })
             .populate('master_trade_id', 'symbol')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
+
+        // Dynamically compute current value based on latest DailyPriceFlag
+        for (let alloc of allocations) {
+            if (alloc.status === 'OPEN') {
+                const latestFlag = await DailyPriceFlag.findOne({ tradeId: alloc.master_trade_id._id }).sort({ timestamp: -1 });
+                if (latestFlag) {
+                    alloc.current_value = alloc.allocation_qty * latestFlag.activePrice;
+                    alloc.active_price = latestFlag.activePrice;
+                    alloc.client_pnl = alloc.current_value - alloc.total_value; // Dynamic PnL
+                } else {
+                    alloc.current_value = alloc.total_value;
+                    alloc.active_price = alloc.allocation_price;
+                }
+            } else {
+                alloc.current_value = alloc.exit_value;
+            }
+        }
+
         res.status(200).json(allocations);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -176,28 +255,11 @@ const getCurrentTable = async (req, res) => {
         const openTrades = await Trade.find({ status: 'OPEN' }).sort({ createdAt: -1 });
         const currentData = [];
 
-        // Dictionary to prevent duplicate fetches in the loop
-        const livePrices = {};
-
         for (const trade of openTrades) {
-            let symbolMap = trade.symbol;
-            // Map common indian indices
-            if (symbolMap.toUpperCase() === 'NIFTY') symbolMap = '^NSEI';
-            if (symbolMap.toUpperCase() === 'BANKNIFTY') symbolMap = '^NSEBANK';
-            if (symbolMap.toUpperCase() === 'SENSEX') symbolMap = '^BSESN';
+            // Find the latest active price flag for this trade
+            const latestFlag = await DailyPriceFlag.findOne({ tradeId: trade._id }).sort({ timestamp: -1 });
 
-            let curPrice = trade.buy_price;
-            try {
-                if (!livePrices[symbolMap]) {
-                    const quote = await yahooFinance.quote(symbolMap);
-                    livePrices[symbolMap] = quote.regularMarketPrice;
-                }
-                curPrice = livePrices[symbolMap] || curPrice;
-            } catch (err) {
-                console.error(`Error fetching ${symbolMap}:`, err);
-            }
-
-            const current_price = curPrice;
+            const current_price = latestFlag ? latestFlag.activePrice : trade.buy_price;
             const unrealized_pnl = (current_price - trade.buy_price) * trade.total_qty;
 
             currentData.push({
@@ -238,5 +300,6 @@ module.exports = {
     getClientAllocations,
     getTradeAllocations,
     getCurrentTable,
-    getAllAllocations
+    getAllAllocations,
+    triggerFlag
 };

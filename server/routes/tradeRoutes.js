@@ -8,7 +8,8 @@ const {
     getClientAllocations,
     getTradeAllocations,
     getCurrentTable,
-    getAllAllocations
+    getAllAllocations,
+    triggerFlag
 } = require('../controllers/tradeController');
 const { authMiddleware, isAdmin } = require('../middleware/authMiddleware');
 
@@ -19,6 +20,7 @@ router.get('/allocations', authMiddleware, isAdmin, getAllAllocations);
 
 router.post('/:id/allocate', authMiddleware, isAdmin, allocateTrade);
 router.post('/:id/close', authMiddleware, isAdmin, closeTrade);
+router.post('/:id/trigger-flag', authMiddleware, isAdmin, triggerFlag);
 router.get('/:id/allocations', authMiddleware, isAdmin, getTradeAllocations);
 
 router.get('/my-allocations/list', authMiddleware, getClientAllocations);

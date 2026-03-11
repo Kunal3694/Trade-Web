@@ -18,6 +18,10 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  brokerage: {
+    type: Number,
+    default: 2 // default to 2%
+  },
   current_balance: {
     type: Number,
     default: 0
@@ -28,8 +32,8 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    default: "client",
-    enum: ["client", "admin"] // Ensures only these two roles exist
+    default: "user",
+    enum: ["user", "client", "admin"] // Ensures only these roles exist
   }
 }, { timestamps: true });
 

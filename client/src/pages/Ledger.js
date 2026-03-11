@@ -5,19 +5,37 @@ import Layout from '../components/Layout';
 const Ledger = () => {
     const [ledger, setLedger] = useState([]);
     const [runningBalance, setRunningBalance] = useState(0);
+    const [userProfile, setUserProfile] = useState({ name: 'User', clientId: 'N/A' });
+    const [searchQueryInput, setSearchQueryInput] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
+        // Load actual User details from local storage
+        const storedUser = localStorage.getItem('userInfo');
+        if (storedUser) {
+            const parsedInfo = JSON.parse(storedUser);
+            setUserProfile({
+                name: parsedInfo.user_name || 'User',
+                clientId: parsedInfo.client_id || 'N/A'
+            });
+        }
+
         const fetchLedger = async () => {
             try {
                 const { data } = await api.get('/ledger');
 
                 // Calculate Running Balance on the Frontend for display accuracy
+                // Backend sends data sorted { entry_date: -1 } (newest first).
                 let currentBal = 0;
-                const calculatedData = data.map(entry => {
-                    if (entry.credit > 0) currentBal += entry.credit;
-                    if (entry.debit > 0) currentBal -= entry.debit;
+                // Reverse to compute balance chronologically (oldest first)
+                const chronologicalData = [...data].reverse().map(entry => {
+                    if (entry.amt_cr > 0) currentBal += entry.amt_cr;
+                    if (entry.amt_dr > 0) currentBal -= entry.amt_dr;
                     return { ...entry, balance: currentBal };
                 });
+
+                // Revert back to newest-first for the UI table
+                const calculatedData = chronologicalData.reverse();
 
                 setLedger(calculatedData);
                 setRunningBalance(currentBal);
@@ -28,13 +46,26 @@ const Ledger = () => {
         fetchLedger();
     }, []);
 
+    // Filter logic
+    const filteredLedger = ledger.filter(row =>
+        row.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (row.amt_cr > 0 && row.amt_cr.toString().includes(searchQuery)) ||
+        (row.amt_dr > 0 && row.amt_dr.toString().includes(searchQuery))
+    );
+
+    // Helper to extract brokerage
+    const extractBrokerage = (desc) => {
+        const match = desc.match(/deducted [\d.]+%\s*brokerage:\s*₹([\d.]+)/i);
+        return match ? parseFloat(match[1]) : 0;
+    };
+
     return (
         <Layout title="Ledger Book">
             <div className="card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '10px' }}>
                     <div>
                         <h2 style={{ fontSize: '1.2rem' }}>Client Ledger</h2>
-                        <p className="text-muted" style={{ fontSize: '0.9rem' }}>Account: XC-1029 (John Doe)</p>
+                        <p className="text-muted" style={{ fontSize: '0.9rem' }}>Account: {userProfile.clientId} ({userProfile.name})</p>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Closing Balance</div>
@@ -44,33 +75,60 @@ const Ledger = () => {
                     </div>
                 </div>
 
+                <div style={{ marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', maxWidth: '400px' }}>
+                        <input
+                            type="text"
+                            placeholder="Search particulars, amounts..."
+                            value={searchQueryInput}
+                            onChange={(e) => setSearchQueryInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && setSearchQuery(searchQueryInput)}
+                            style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: '6px 0 0 6px', background: 'var(--bg-card)', color: 'var(--text-main)', width: '100%', outline: 'none' }}
+                        />
+                        <button
+                            className="btn btn-primary"
+                            onClick={() => setSearchQuery(searchQueryInput)}
+                            style={{ borderRadius: '0 6px 6px 0', borderLeft: 'none', padding: '8px 16px' }}
+                        >
+                            Search
+                        </button>
+                    </div>
+                </div>
+
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0' }}>
                         <thead>
                             <tr style={{ textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>
                                 <th style={{ padding: '12px', borderBottom: '2px solid var(--border)' }}>Date</th>
                                 <th style={{ padding: '12px', borderBottom: '2px solid var(--border)' }}>Particulars</th>
+                                <th style={{ padding: '12px', borderBottom: '2px solid var(--border)', textAlign: 'right' }}>Brokerage Fee</th>
                                 <th style={{ padding: '12px', borderBottom: '2px solid var(--border)', textAlign: 'right' }}>Debit</th>
                                 <th style={{ padding: '12px', borderBottom: '2px solid var(--border)', textAlign: 'right' }}>Credit</th>
                                 <th style={{ padding: '12px', borderBottom: '2px solid var(--border)', textAlign: 'right' }}>Running Bal</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {ledger.map(row => (
-                                <tr key={row._id}>
-                                    <td style={{ padding: '14px 12px', borderBottom: '1px solid var(--border)' }}>{new Date(row.date).toLocaleDateString()}</td>
-                                    <td style={{ padding: '14px 12px', borderBottom: '1px solid var(--border)' }}>{row.description}</td>
-                                    <td style={{ padding: '14px 12px', borderBottom: '1px solid var(--border)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--danger)' }}>
-                                        {row.debit > 0 ? row.debit.toLocaleString() : '-'}
-                                    </td>
-                                    <td style={{ padding: '14px 12px', borderBottom: '1px solid var(--border)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--success)' }}>
-                                        {row.credit > 0 ? row.credit.toLocaleString() : '-'}
-                                    </td>
-                                    <td style={{ padding: '14px 12px', borderBottom: '1px solid var(--border)', textAlign: 'right', fontWeight: '700', fontFamily: 'monospace' }}>
-                                        ₹ {row.balance.toLocaleString()}
-                                    </td>
-                                </tr>
-                            ))}
+                            {filteredLedger.map(row => {
+                                const brokerage = extractBrokerage(row.description);
+                                return (
+                                    <tr key={row._id}>
+                                        <td style={{ padding: '14px 12px', borderBottom: '1px solid var(--border)' }}>{new Date(row.entry_date).toLocaleDateString()}</td>
+                                        <td style={{ padding: '14px 12px', borderBottom: '1px solid var(--border)' }}>{row.description}</td>
+                                        <td style={{ padding: '14px 12px', borderBottom: '1px solid var(--border)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--danger)' }}>
+                                            {brokerage > 0 ? `₹ ${brokerage.toFixed(2)}` : '-'}
+                                        </td>
+                                        <td style={{ padding: '14px 12px', borderBottom: '1px solid var(--border)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--danger)' }}>
+                                            {row.amt_dr > 0 ? row.amt_dr.toLocaleString() : '-'}
+                                        </td>
+                                        <td style={{ padding: '14px 12px', borderBottom: '1px solid var(--border)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--success)' }}>
+                                            {row.amt_cr > 0 ? row.amt_cr.toLocaleString() : '-'}
+                                        </td>
+                                        <td style={{ padding: '14px 12px', borderBottom: '1px solid var(--border)', textAlign: 'right', fontWeight: '700', fontFamily: 'monospace' }}>
+                                            ₹ {row.balance.toLocaleString()}
+                                        </td>
+                                    </tr>
+                                )
+                            })}
                         </tbody>
                     </table>
                 </div>

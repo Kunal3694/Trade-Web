@@ -5,6 +5,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  client_id: {
+    type: String,
+    unique: true,
+    sparse: true // Allows multiple nulls if necessary, but we'll try to populate it
+  },
   mob_num: {
     type: String,
     required: true,

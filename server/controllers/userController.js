@@ -91,9 +91,17 @@ const loginUser = async (req, res) => {
 // @route   GET /api/users
 const getUsers = async (req, res) => {
   try {
-    // Fetch all users sorted by newest first, exclude password
-    const users = await User.find().select("-password").sort({ createdAt: -1 });
-    res.status(200).json(users);
+    // Fetch all users and admins sorted by newest first, exclude password
+    const users = await User.find().select("-password").sort({ createdAt: -1 }).lean();
+    const admins = await Admin.find().select("-password").lean();
+    
+    // Add role "admin" to admins explicitly and merge lists
+    const mergedUsers = [
+      ...admins.map(a => ({ ...a, role: 'admin' })),
+      ...users
+    ];
+    
+    res.status(200).json(mergedUsers);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

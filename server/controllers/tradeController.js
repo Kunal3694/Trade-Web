@@ -424,6 +424,7 @@ const getAllAllocations = async (req, res) => {
                     client_pnl: 1,
                     status: 1,
                     user_name: '$user_details.user_name',
+                    user_brokerage: { $ifNull: ['$user_details.brokerage', 2] },
                     createdAt: 1
                 }
             }

@@ -825,27 +825,43 @@ const AdminDashboard = () => {
                                         <th style={thStyle} onClick={() => requestSort('allocation_qty')}>Qty {sortConfig.key === 'allocation_qty' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</th>
                                         <th style={thStyle}>Buy Price</th>
                                         <th style={thStyle}>Buy Brok</th>
+                                        <th style={thStyle}>Total Buy Price</th>
                                         <th style={thStyle}>Sell Price</th>
                                         <th style={thStyle}>Sell Brok</th>
+                                        <th style={thStyle}>Total Sell Price</th>
                                         <th style={thStyle} onClick={() => requestSort('client_pnl')}>Realized P&L {sortConfig.key === 'client_pnl' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {sortedAllocations.map(a => (
-                                        <tr key={a._id}>
-                                            <td style={tdStyle}>{new Date(a.buy_timestamp).toLocaleString()}</td>
-                                            <td style={{ ...tdStyle, fontWeight: 'bold' }}>{a.user_name || users.find(u => String(u.mob_num).replace(/^0+/, '') === String(a.mob_num).replace(/^0+/, ''))?.user_name || a.mob_num}</td>
-                                            <td style={{ ...tdStyle, fontWeight: 'bold' }}>{a.master_trade_id?.symbol}</td>
-                                            <td style={tdStyle}>{a.allocation_qty}</td>
-                                            <td style={{ ...tdStyle, fontFamily: 'monospace' }}>₹{(a.allocation_price || 0).toFixed(2)}</td>
-                                            <td style={{ ...tdStyle, fontFamily: 'monospace' }}>₹{(a.master_trade_id?.buy_brokerage || 0).toFixed(2)}</td>
-                                            <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{a.status === 'CLOSED' ? `₹${(a.exit_price || 0).toFixed(2)}` : '-'}</td>
-                                            <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{a.status === 'CLOSED' ? `₹${(a.master_trade_id?.sell_brokerage || 0).toFixed(2)}` : '-'}</td>
-                                            <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 'bold', color: a.status === 'CLOSED' ? (a.client_pnl >= 0 ? 'var(--success)' : 'var(--danger)') : 'inherit' }}>
-                                                {a.status === 'CLOSED' ? `${a.client_pnl >= 0 ? '+' : ''}₹${(a.client_pnl || 0).toFixed(2)}` : '-'}
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {sortedAllocations.map(a => {
+                                        const userRate = a.user_brokerage || 2;
+                                        const buyPrice = a.allocation_price || 0;
+                                        const buyBrok = buyPrice * (userRate / 100);
+                                        const totalBuyPrice = buyPrice + buyBrok;
+                                        
+                                        const isClosed = a.status === 'CLOSED';
+                                        const sellPrice = a.exit_price || 0;
+                                        const sellBrok = sellPrice * (userRate / 100);
+                                        const totalSellPrice = sellPrice + sellBrok;
+
+                                        return (
+                                            <tr key={a._id}>
+                                                <td style={tdStyle}>{new Date(a.buy_timestamp).toLocaleString()}</td>
+                                                <td style={{ ...tdStyle, fontWeight: 'bold' }}>{a.user_name || users.find(u => String(u.mob_num).replace(/^0+/, '') === String(a.mob_num).replace(/^0+/, ''))?.user_name || a.mob_num}</td>
+                                                <td style={{ ...tdStyle, fontWeight: 'bold' }}>{a.master_trade_id?.symbol}</td>
+                                                <td style={tdStyle}>{a.allocation_qty}</td>
+                                                <td style={{ ...tdStyle, fontFamily: 'monospace' }}>₹{buyPrice.toFixed(2)}</td>
+                                                <td style={{ ...tdStyle, fontFamily: 'monospace' }}>₹{buyBrok.toFixed(2)}</td>
+                                                <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 'bold' }}>₹{totalBuyPrice.toFixed(2)}</td>
+                                                <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{isClosed ? `₹${sellPrice.toFixed(2)}` : '-'}</td>
+                                                <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{isClosed ? `₹${sellBrok.toFixed(2)}` : '-'}</td>
+                                                <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 'bold' }}>{isClosed ? `₹${totalSellPrice.toFixed(2)}` : '-'}</td>
+                                                <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 'bold', color: isClosed ? (a.client_pnl >= 0 ? 'var(--success)' : 'var(--danger)') : 'inherit' }}>
+                                                    {isClosed ? `${a.client_pnl >= 0 ? '+' : ''}₹${(a.client_pnl || 0).toFixed(2)}` : '-'}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

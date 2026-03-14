@@ -824,9 +824,11 @@ const AdminDashboard = () => {
                                         <th style={thStyle} onClick={() => requestSort('master_trade_id.symbol')}>Symbol {sortConfig.key === 'master_trade_id.symbol' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</th>
                                         <th style={thStyle} onClick={() => requestSort('allocation_qty')}>Qty {sortConfig.key === 'allocation_qty' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</th>
                                         <th style={thStyle}>Buy Price</th>
+                                        <th style={thStyle}>Buy Value</th>
                                         <th style={thStyle}>Buy Brok</th>
                                         <th style={thStyle}>Total Buy Price</th>
                                         <th style={thStyle}>Sell Price</th>
+                                        <th style={thStyle}>Exit Value</th>
                                         <th style={thStyle}>Sell Brok</th>
                                         <th style={thStyle}>Total Sell Price</th>
                                         <th style={thStyle} onClick={() => requestSort('client_pnl')}>Realized P&L {sortConfig.key === 'client_pnl' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</th>
@@ -835,25 +837,30 @@ const AdminDashboard = () => {
                                 <tbody>
                                     {sortedAllocations.map(a => {
                                         const userRate = a.user_brokerage || 2;
+                                        const qty = a.allocation_qty || 0;
                                         const buyPrice = a.allocation_price || 0;
-                                        const buyBrok = buyPrice * (userRate / 100);
-                                        const totalBuyPrice = buyPrice + buyBrok;
+                                        const buyValue = buyPrice * qty;
+                                        const buyBrok = buyValue * (userRate / 100);
+                                        const totalBuyPrice = buyValue + buyBrok;
                                         
                                         const isClosed = a.status === 'CLOSED';
                                         const sellPrice = a.exit_price || 0;
-                                        const sellBrok = sellPrice * (userRate / 100);
-                                        const totalSellPrice = sellPrice + sellBrok;
+                                        const sellValue = sellPrice * qty;
+                                        const sellBrok = sellValue * (userRate / 100);
+                                        const totalSellPrice = sellValue + sellBrok;
 
                                         return (
                                             <tr key={a._id}>
                                                 <td style={tdStyle}>{new Date(a.buy_timestamp).toLocaleString()}</td>
                                                 <td style={{ ...tdStyle, fontWeight: 'bold' }}>{a.user_name || users.find(u => String(u.mob_num).replace(/^0+/, '') === String(a.mob_num).replace(/^0+/, ''))?.user_name || a.mob_num}</td>
                                                 <td style={{ ...tdStyle, fontWeight: 'bold' }}>{a.master_trade_id?.symbol}</td>
-                                                <td style={tdStyle}>{a.allocation_qty}</td>
+                                                <td style={tdStyle}>{qty}</td>
                                                 <td style={{ ...tdStyle, fontFamily: 'monospace' }}>₹{buyPrice.toFixed(2)}</td>
+                                                <td style={{ ...tdStyle, fontFamily: 'monospace' }}>₹{buyValue.toFixed(2)}</td>
                                                 <td style={{ ...tdStyle, fontFamily: 'monospace' }}>₹{buyBrok.toFixed(2)}</td>
                                                 <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 'bold' }}>₹{totalBuyPrice.toFixed(2)}</td>
                                                 <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{isClosed ? `₹${sellPrice.toFixed(2)}` : '-'}</td>
+                                                <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{isClosed ? `₹${sellValue.toFixed(2)}` : '-'}</td>
                                                 <td style={{ ...tdStyle, fontFamily: 'monospace' }}>{isClosed ? `₹${sellBrok.toFixed(2)}` : '-'}</td>
                                                 <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 'bold' }}>{isClosed ? `₹${totalSellPrice.toFixed(2)}` : '-'}</td>
                                                 <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 'bold', color: isClosed ? (a.client_pnl >= 0 ? 'var(--success)' : 'var(--danger)') : 'inherit' }}>

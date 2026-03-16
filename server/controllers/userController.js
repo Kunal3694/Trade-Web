@@ -21,21 +21,21 @@ const registerUser = async (req, res) => {
       user_name,
       mob_num,
       password: hashedPassword,
-      brokerage: brokerage !== undefined ? brokerage : 2,
-      initial_balance: req.body.current_balance || 0,
+      brokerage: brokerage !== undefined ? Number(brokerage) : 2,
+      initial_balance: Number(req.body.current_balance) || 0,
       added_funds: 0,
-      current_balance: req.body.current_balance || 0,
+      current_balance: Number(req.body.current_balance) || 0,
       role: "user",
       status: "active"
     });
 
-    if (req.body.current_balance > 0) {
+    if (Number(req.body.current_balance) > 0) {
       await LedgerEntry.create({
         mob_num,
         act_type: 'CREDIT',
-        amt_cr: req.body.current_balance,
+        amt_cr: Number(req.body.current_balance),
         amt_dr: 0,
-        cls_balance: req.body.current_balance,
+        cls_balance: Number(req.body.current_balance),
         description: "Initial Balance Added"
       });
     }
@@ -50,19 +50,20 @@ const registerUser = async (req, res) => {
 // @route   POST /api/users/login
 const loginUser = async (req, res) => {
   try {
-    const { mob_num, password } = req.body;
+    const { mob_num, password, isAdminMode } = req.body;
 
-    // Check Admin first
-    let user = await Admin.findOne({ mob_num });
-    let role = "admin";
+    let user;
+    let role;
 
-    if (!user) {
-      // Check User
+    if (isAdminMode) {
+      user = await Admin.findOne({ mob_num });
+      role = "admin";
+      if (!user) return res.status(400).json({ msg: "Admin account not found for this mobile number" });
+    } else {
       user = await User.findOne({ mob_num });
       role = user ? user.role : null;
+      if (!user) return res.status(400).json({ msg: "User account not found for this mobile number" });
     }
-
-    if (!user) return res.status(400).json({ msg: "Invalid mobile number" });
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ msg: "Invalid password" });

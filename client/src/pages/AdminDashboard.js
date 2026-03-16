@@ -141,7 +141,12 @@ const AdminDashboard = () => {
             return alert("Mobile number must be exactly 10 digits.");
         }
         try {
-            await api.post('/users/create', newUser);
+            const payload = {
+                ...newUser,
+                brokerage: Number(newUser.brokerage || 2),
+                current_balance: Number(newUser.current_balance || 0)
+            };
+            await api.post('/users/create', payload);
             alert("User created successfully!");
             setNewUser({ user_name: '', mob_num: '', password: '', brokerage: 2, current_balance: 100000 });
             setShowUserModal(false);

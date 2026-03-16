@@ -18,14 +18,15 @@ const Login = () => {
         try {
             const { data } = await api.post('/users/login', {
                 mob_num,
-                password
+                password,
+                isAdminMode
             });
 
             localStorage.setItem('userInfo', JSON.stringify(data));
             if (data.user.role === 'admin') {
                 navigate('/admin-dashboard');
             } else if (data.user.status === 'active') {
-                navigate('/');
+                navigate('/Dashboard');
             } else {
                 setError('Account is not active');
             }

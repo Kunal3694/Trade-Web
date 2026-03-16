@@ -9,6 +9,8 @@ const jwt = require("jsonwebtoken");
 const registerUser = async (req, res) => {
   try {
     const { user_name, mob_num, password, brokerage } = req.body;
+    const balance = req.body.current_balance ? Number(req.body.current_balance) : 0;
+    const brokerageVal = brokerage !== undefined ? Number(brokerage) : 2;
 
     const existing = await User.findOne({ mob_num });
     if (existing) return res.status(400).json({ msg: "User already exists" });
@@ -21,21 +23,21 @@ const registerUser = async (req, res) => {
       user_name,
       mob_num,
       password: hashedPassword,
-      brokerage: brokerage !== undefined ? brokerage : 2,
-      initial_balance: req.body.current_balance || 0,
+      brokerage: brokerageVal,
+      initial_balance: balance,
       added_funds: 0,
-      current_balance: req.body.current_balance || 0,
+      current_balance: balance,
       role: "user",
       status: "active"
     });
 
-    if (req.body.current_balance > 0) {
+    if (balance > 0) {
       await LedgerEntry.create({
         mob_num,
         act_type: 'CREDIT',
-        amt_cr: req.body.current_balance,
+        amt_cr: balance,
         amt_dr: 0,
-        cls_balance: req.body.current_balance,
+        cls_balance: balance,
         description: "Initial Balance Added"
       });
     }

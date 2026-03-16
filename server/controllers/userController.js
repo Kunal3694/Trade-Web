@@ -11,8 +11,9 @@ const registerUser = async (req, res) => {
     const { user_name, mob_num, password, brokerage } = req.body;
     const balance = req.body.current_balance ? Number(req.body.current_balance) : 0;
     const brokerageVal = brokerage !== undefined ? Number(brokerage) : 2;
+    const sanitizedMobNum = mob_num ? mob_num.trim() : "";
 
-    const existing = await User.findOne({ mob_num });
+    const existing = await User.findOne({ mob_num: sanitizedMobNum });
     if (existing) return res.status(400).json({ msg: "User already exists" });
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -52,19 +53,35 @@ const registerUser = async (req, res) => {
 // @route   POST /api/users/login
 const loginUser = async (req, res) => {
   try {
-    const { mob_num, password } = req.body;
+    const { mob_num, password, isAdmin } = req.body;
+    const sanitizedMobNum = mob_num ? mob_num.trim() : "";
 
-    // Check Admin first
-    let user = await Admin.findOne({ mob_num });
-    let role = "admin";
+    let user;
+    let role;
 
-    if (!user) {
-      // Check User
-      user = await User.findOne({ mob_num });
+    if (isAdmin) {
+      // Strict Admin Check
+      user = await Admin.findOne({ mob_num: sanitizedMobNum });
+      role = "admin";
+    } else {
+      // Strict User Check
+      user = await User.findOne({ mob_num: sanitizedMobNum });
       role = user ? user.role : null;
     }
 
-    if (!user) return res.status(400).json({ msg: "Invalid mobile number" });
+    if (!user) {
+      // Diagnostic check: is this number in the other collection?
+      const otherUser = isAdmin 
+        ? await User.findOne({ mob_num: sanitizedMobNum })
+        : await Admin.findOne({ mob_num: sanitizedMobNum });
+
+      if (otherUser) {
+        return res.status(400).json({ 
+          msg: `This number is registered as ${isAdmin ? 'a User' : 'an Admin'}. Please use the ${isAdmin ? 'User' : 'Admin'} Login tab.` 
+        });
+      }
+      return res.status(400).json({ msg: "Invalid mobile number" });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ msg: "Invalid password" });
@@ -119,11 +136,12 @@ const updateUser = async (req, res) => {
 
     if (!user) return res.status(404).json({ msg: "User not found" });
 
+    const sanitizedMobNum = mob_num ? mob_num.trim() : user.mob_num;
     const oldMobNum = user.mob_num;
-    const isMobNumChanging = mob_num && mob_num !== oldMobNum;
+    const isMobNumChanging = sanitizedMobNum && sanitizedMobNum !== oldMobNum;
 
     user.user_name = user_name || user.user_name;
-    user.mob_num = mob_num || user.mob_num;
+    user.mob_num = sanitizedMobNum;
     user.brokerage = brokerage !== undefined ? brokerage : user.brokerage;
     user.status = status || user.status;
 

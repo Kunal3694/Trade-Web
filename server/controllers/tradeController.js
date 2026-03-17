@@ -31,7 +31,8 @@ const createTrade = async (req, res) => {
             amt_dr: total_cost,
             cls_balance: 0,
             trade_id: trade._id,
-            description: `Master Trade Executed: ${symbol} (${total_qty} qty)`
+            description: `Master Trade Executed: ${symbol} (${total_qty} qty)`,
+            is_admin_only: true
         });
 
         res.status(201).json(trade);
@@ -136,41 +137,56 @@ const closeTrade = async (req, res) => {
         // Find & Close all allocations for this trade
         const allocations = await AllocationTrade.find({ master_trade_id: trade._id, status: 'OPEN' });
 
+        const userAllocations = {};
         for (const alloc of allocations) {
-            const user = await User.findOne({ mob_num: alloc.mob_num });
+            if (!userAllocations[alloc.mob_num]) userAllocations[alloc.mob_num] = [];
+            userAllocations[alloc.mob_num].push(alloc);
+        }
 
-            alloc.exit_price = sell_price;
-            alloc.sell_timestamp = new Date();
-            alloc.exit_value = alloc.allocation_qty * sell_price;
+        for (const mob_num of Object.keys(userAllocations)) {
+            const userAllocs = userAllocations[mob_num];
+            const user = await User.findOne({ mob_num });
 
-            // Core P&L difference
-            const raw_client_pnl = alloc.exit_value - alloc.total_value;
+            let total_raw_client_pnl = 0;
+            let total_exit_value = 0;
+            let total_sell_brokerage = 0;
+            let total_return_amount = 0;
+            let total_qty = 0;
 
-            // Apply unique brokerage (use stored rate or fallback to user rate)
-            let user_brokerage_rate = (alloc.user_brokerage_rate !== undefined) ? alloc.user_brokerage_rate : (user && user.brokerage !== undefined ? user.brokerage : 2);
-            const sell_brokerage = alloc.exit_value * (user_brokerage_rate / 100);
+            for (const alloc of userAllocs) {
+                alloc.exit_price = sell_price;
+                alloc.sell_timestamp = new Date();
+                alloc.exit_value = alloc.allocation_qty * sell_price;
 
-            const total_brokerage = (alloc.buy_brokerage || 0) + sell_brokerage;
-            const final_client_pnl = raw_client_pnl - total_brokerage;
+                const raw_client_pnl = alloc.exit_value - alloc.total_value;
 
-            alloc.sell_brokerage = sell_brokerage;
-            alloc.client_pnl = final_client_pnl;
-            alloc.status = 'CLOSED';
-            await alloc.save();
+                let user_brokerage_rate = (alloc.user_brokerage_rate !== undefined) ? alloc.user_brokerage_rate : (user && user.brokerage !== undefined ? user.brokerage : 2);
+                const sell_brokerage = alloc.exit_value * (user_brokerage_rate / 100);
 
-            // Create Ledger Entry and update User balance
+                const total_brokerage = (alloc.buy_brokerage || 0) + sell_brokerage;
+                const final_client_pnl = raw_client_pnl - total_brokerage;
+
+                alloc.sell_brokerage = sell_brokerage;
+                alloc.client_pnl = final_client_pnl;
+                alloc.status = 'CLOSED';
+                await alloc.save();
+
+                total_raw_client_pnl += raw_client_pnl;
+                total_exit_value += alloc.exit_value;
+                total_sell_brokerage += sell_brokerage;
+                total_return_amount += (alloc.exit_value - sell_brokerage);
+                total_qty += alloc.allocation_qty;
+            }
+
             if (user) {
-                // Since we deducted the entire trade value & buy brokerage at allocation, 
-                // we now credit the total exit value minus sell brokerage back to the balance.
-                const return_amount = alloc.exit_value - sell_brokerage;
-                const cls_balance = user.current_balance + return_amount;
+                const cls_balance = user.current_balance + total_return_amount;
 
-                let desc = `Trade Closed (${trade.symbol}) | Exit Price: ₹${sell_price.toFixed(2)} | Exit Value: ₹${alloc.exit_value.toFixed(2)} | P&L: ₹${raw_client_pnl.toFixed(2)} | Sell Brokerage: ${user_brokerage_rate}% (₹${sell_brokerage.toFixed(2)}) | Net Credit: ₹${return_amount.toFixed(2)}`;
+                let desc = `Trade Closed (${trade.symbol}) | Exit Price: ₹${sell_price.toFixed(2)} | Qty: ${total_qty} | Exit Value: ₹${total_exit_value.toFixed(2)} | P&L: ₹${total_raw_client_pnl.toFixed(2)} | Sell Brokerage: ₹${total_sell_brokerage.toFixed(2)} | Net Credit: ₹${total_return_amount.toFixed(2)}`;
 
                 await LedgerEntry.create({
                     mob_num: user.mob_num,
                     act_type: 'TRADE',
-                    amt_cr: return_amount,
+                    amt_cr: total_return_amount,
                     amt_dr: 0,
                     cls_balance,
                     trade_id: trade._id,
@@ -189,8 +205,12 @@ const closeTrade = async (req, res) => {
             amt_dr: 0,
             cls_balance: 0,
             trade_id: trade._id,
-            description: `Master Trade Closed: ${trade.symbol}. Gross P&L: ₹${trade.master_pnl.toFixed(2)}`
+            description: `Master Trade Closed: ${trade.symbol}. Gross P&L: ₹${trade.master_pnl.toFixed(2)}`,
+            is_admin_only: true
         });
+
+        // Delete all temporary M2M ledger entries for this trade
+        await LedgerEntry.deleteMany({ trade_id: trade._id, isM2M: true });
 
         await trade.save();
         res.status(200).json({ message: "Trade closed successfully", trade });
@@ -221,27 +241,123 @@ const triggerFlag = async (req, res) => {
             activePrice: Number(activePrice)
         });
 
-        // Add informational ledger entry for each allocated user
+        // Add informational ledger entry for each allocated user (Grouped by User)
         const allocations = await AllocationTrade.find({ master_trade_id: trade._id, status: 'OPEN' });
 
+        const userAllocations = {};
         for (const alloc of allocations) {
-            const user = await User.findOne({ mob_num: alloc.mob_num });
+            if (!userAllocations[alloc.mob_num]) userAllocations[alloc.mob_num] = [];
+            userAllocations[alloc.mob_num].push(alloc);
+        }
+
+        let totalAdminM2MPnl = 0;
+
+        for (const mob_num of Object.keys(userAllocations)) {
+            const userAllocs = userAllocations[mob_num];
+            const user = await User.findOne({ mob_num });
+
             if (user) {
                 let actionName = 'Temporary Update';
                 if (flagType === 'TEM_OPEN') actionName = 'Temporary Open';
                 else if (flagType === 'TEM_CLOSE') actionName = 'Temporary Close';
                 else if (flagType === 'M to M') actionName = 'M to M';
 
-                const desc = `Trade Alert: ${actionName} for ${trade.symbol} at ₹${Number(activePrice).toFixed(2)} (Day ${day})`;
+                if (flagType === 'M to M') {
+                    // M to M specific ledger logic aggregated
+                    let totalUserPnl = 0;
+                    let totalQty = 0;
+                    for (const a of userAllocs) {
+                        totalUserPnl += (Number(activePrice) - a.allocation_price) * a.allocation_qty;
+                        totalQty += a.allocation_qty;
+                    }
+                    totalAdminM2MPnl += totalUserPnl;
 
+                    const desc = `M to M Update | Symbol: ${trade.symbol} | CMP: ₹${Number(activePrice).toFixed(2)} | Qty: ${totalQty} | P&L: ₹${totalUserPnl.toFixed(2)}`;
+
+                    let existingM2M = await LedgerEntry.findOne({
+                        mob_num: user.mob_num,
+                        trade_id: trade._id,
+                        isM2M: true
+                    });
+
+                    let amt_cr = totalUserPnl > 0 ? totalUserPnl : 0;
+                    let amt_dr = totalUserPnl < 0 ? Math.abs(totalUserPnl) : 0;
+
+                    if (existingM2M) {
+                        existingM2M.amt_cr = amt_cr;
+                        existingM2M.amt_dr = amt_dr;
+                        existingM2M.description = desc;
+                        existingM2M.act_type = 'TRADE';
+                        await existingM2M.save();
+                    } else {
+                        await LedgerEntry.create({
+                            mob_num: user.mob_num,
+                            act_type: 'TRADE',
+                            amt_cr: amt_cr,
+                            amt_dr: amt_dr,
+                            cls_balance: user.current_balance || 0,
+                            trade_id: trade._id,
+                            isM2M: true,
+                            description: desc
+                        });
+                    }
+                } else {
+                    const desc = `Trade Alert: ${actionName} for ${trade.symbol} at ₹${Number(activePrice).toFixed(2)} (Day ${day})`;
+                    const regexPrefix = `Trade Alert: ${actionName} for ${trade.symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`;
+
+                    let existingTemp = await LedgerEntry.findOne({
+                        mob_num: user.mob_num,
+                        trade_id: trade._id,
+                        description: new RegExp(`^${regexPrefix}`)
+                    });
+
+                    if (existingTemp) {
+                        existingTemp.description = desc;
+                        existingTemp.act_type = 'TRADE';
+                        await existingTemp.save();
+                    } else {
+                        await LedgerEntry.create({
+                            mob_num: user.mob_num,
+                            act_type: 'TRADE',
+                            amt_cr: 0,
+                            amt_dr: 0,
+                            cls_balance: user.current_balance || 0,
+                            trade_id: trade._id,
+                            description: desc
+                        });
+                    }
+                }
+            }
+        }
+
+        if (flagType === 'M to M' && req.user) {
+            const adminDesc = `M to M Master Update | Symbol: ${trade.symbol} | Gross P&L: ₹${totalAdminM2MPnl.toFixed(2)}`;
+            let amt_cr = totalAdminM2MPnl > 0 ? totalAdminM2MPnl : 0;
+            let amt_dr = totalAdminM2MPnl < 0 ? Math.abs(totalAdminM2MPnl) : 0;
+
+            let existingAdminM2M = await LedgerEntry.findOne({
+                mob_num: req.user.mob_num,
+                trade_id: trade._id,
+                isM2M: true
+            });
+
+            if (existingAdminM2M) {
+                existingAdminM2M.amt_cr = amt_cr;
+                existingAdminM2M.amt_dr = amt_dr;
+                existingAdminM2M.description = adminDesc;
+                existingAdminM2M.is_admin_only = true;
+                await existingAdminM2M.save()
+            } else {
                 await LedgerEntry.create({
-                    mob_num: user.mob_num,
+                    mob_num: req.user.mob_num,
                     act_type: 'TRADE',
-                    amt_cr: 0,
-                    amt_dr: 0,
-                    cls_balance: user.current_balance || 0,
-                    // trade_id: trade._id, // Commented out to match schema exactly if needed, though it doesn't hurt
-                    description: desc
+                    amt_cr: amt_cr,
+                    amt_dr: amt_dr,
+                    cls_balance: 0,
+                    trade_id: trade._id,
+                    isM2M: true,
+                    description: adminDesc,
+                    is_admin_only: true
                 });
             }
         }
@@ -382,7 +498,7 @@ const getCurrentTable = async (req, res) => {
         for (const alloc of openAllocations) {
             // Use the master_trade from aggregation instead of the raw master_trade_id ObjectId
             const masterTrade = alloc.master_trade || {};
-            
+
             // Find the latest active price flag for this master trade
             const latestFlag = await DailyPriceFlag.findOne({ tradeId: alloc.master_trade_id }).sort({ timestamp: -1 });
 

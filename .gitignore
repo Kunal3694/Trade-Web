@@ -35,7 +35,7 @@ yarn.lock
 .env.production.local
 
 # Production build artifacts
-client/build/
+
 client/dist/
 
 # OS generated files

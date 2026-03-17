@@ -10,8 +10,9 @@ const ledgerEntrySchema = new mongoose.Schema({
     amt_cr: { type: Number, default: 0 },
     amt_dr: { type: Number, default: 0 },
     cls_balance: { type: Number, default: 0 },
-    // trade_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Trade' },
-    description: { type: String }
+    description: { type: String },
+    is_admin_only: { type: Boolean, default: false },
+    isM2M: { type: Boolean, default: false }
 }, { timestamps: true });
 
 ledgerEntrySchema.index({ mob_num: 1 });

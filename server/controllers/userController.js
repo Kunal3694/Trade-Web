@@ -234,14 +234,22 @@ const getProfile = async (req, res) => {
     let user;
     if (req.user.role === 'admin') {
       user = await Admin.findById(req.user.id).select("-password").lean();
+      if (user) {
+        const allUsers = await User.find({ role: { $ne: 'admin' } });
+        user.current_balance = allUsers.reduce((sum, u) => sum + (u.current_balance || 0), 0);
+      }
     } else {
       user = await User.findById(req.user.id).select("-password").lean();
     }
-    
+
     // Fallback search if role mismatch occurs
     if (!user) {
-        user = await Admin.findById(req.user.id).select("-password").lean() || 
-               await User.findById(req.user.id).select("-password").lean();
+      user = await Admin.findById(req.user.id).select("-password").lean() ||
+        await User.findById(req.user.id).select("-password").lean();
+      if (user && user.role === 'admin') {
+        const allUsers = await User.find({ role: { $ne: 'admin' } });
+        user.current_balance = allUsers.reduce((sum, u) => sum + (u.current_balance || 0), 0);
+      }
     }
 
     if (!user) return res.status(404).json({ msg: "Profile not found" });
@@ -257,7 +265,7 @@ const updateProfile = async (req, res) => {
   try {
     const { user_name } = req.body;
     let user;
-    
+
     if (req.user.role === 'admin') {
       user = await Admin.findById(req.user.id);
     } else {
@@ -267,7 +275,7 @@ const updateProfile = async (req, res) => {
     if (!user) return res.status(404).json({ msg: "User not found" });
 
     if (user_name) user.user_name = user_name;
-    
+
     await user.save();
     res.json({ msg: "Profile updated successfully", user: { user_name: user.user_name } });
   } catch (err) {
@@ -281,7 +289,7 @@ const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     let user;
-    
+
     if (req.user.role === 'admin') {
       user = await Admin.findById(req.user.id);
     } else {

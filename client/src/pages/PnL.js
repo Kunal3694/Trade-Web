@@ -35,7 +35,7 @@ const PnL = () => {
 
         // Extract "Funds Added" from ledger, filter out Trade Alerts (M to M)
         const filteredLedger = ledgerData.filter(l =>
-            !l.description.includes('Trade Alert') && !l.description.includes('M to M')
+            !l.description.includes('Trade Alert.') && !l.description.includes('M to M')
         );
 
         const fundsAdded = filteredLedger.filter(l =>

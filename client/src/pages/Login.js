@@ -17,9 +17,10 @@ const Login = () => {
 
         try {
             const { data } = await api.post('/users/login', {
-                mob_num,
+                mob_num: mob_num.trim(),
                 password,
-                isAdminMode
+                isAdminMode,
+                isAdmin: isAdminMode
             });
 
             localStorage.setItem('userInfo', JSON.stringify(data));
@@ -101,7 +102,7 @@ const Login = () => {
                             type="text"
                             className="form-control"
                             value={mob_num}
-                            onChange={(e) => setMobNum(e.target.value)}
+                            onChange={(e) => setMobNum(e.target.value.replace(/\D/g, '').slice(0, 10))}
                             style={{ width: '100%', padding: '12px', background: 'var(--bg-body)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '8px', outline: 'none' }}
                             placeholder="Enter mobile number"
                             required

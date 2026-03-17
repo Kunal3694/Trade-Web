@@ -17,7 +17,7 @@ const registerUser = async (req, res) => {
 
     const existingUser = await User.findOne({ mob_num });
     const existingAdmin = await Admin.findOne({ mob_num });
-    
+
     if (existingUser || existingAdmin) {
       return res.status(400).json({ msg: "Mobile number already in use" });
     }
@@ -33,7 +33,7 @@ const registerUser = async (req, res) => {
       brokerage: brokerage !== undefined ? Number(brokerage) : 2,
       initial_balance: Number(req.body.current_balance) || 0,
       added_funds: 0,
-      current_balance: Number(req.body.current_balance) || 0,
+      current_balance: Number(balance),
       role: "user",
       status: "active"
     });
@@ -105,13 +105,13 @@ const getUsers = async (req, res) => {
     // Fetch all users and admins sorted by newest first, exclude password
     const users = await User.find().select("-password").sort({ createdAt: -1 }).lean();
     const admins = await Admin.find().select("-password").lean();
-    
+
     // Add role "admin" to admins explicitly and merge lists
     const mergedUsers = [
       ...admins.map(a => ({ ...a, user_name: 'Admin', role: 'admin' })),
       ...users
     ];
-    
+
     res.status(200).json(mergedUsers);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -140,10 +140,10 @@ const updateUser = async (req, res) => {
     }
 
     const oldMobNum = user.mob_num;
-    const isMobNumChanging = mob_num && mob_num !== oldMobNum;
+    const isMobNumChanging = sanitizedMobNum && sanitizedMobNum !== oldMobNum;
 
     user.user_name = user_name || user.user_name;
-    user.mob_num = mob_num || user.mob_num;
+    user.mob_num = sanitizedMobNum;
     user.brokerage = brokerage !== undefined ? brokerage : user.brokerage;
     user.status = status || user.status;
 

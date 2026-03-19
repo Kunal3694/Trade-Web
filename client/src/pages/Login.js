@@ -9,6 +9,7 @@ const Login = () => {
     const [error, setError] = useState('');
     const navigate = useNavigate();
 
+
     const handleLogin = async (e) => {
         e.preventDefault();
 
@@ -18,8 +19,14 @@ const Login = () => {
                 password
             });
 
+            if (!data || !data.user) {
+                setError('Login failed: Invalid server response structure');
+                return;
+            }
+
             localStorage.setItem('userInfo', JSON.stringify(data));
             if (data.user.role === 'admin') {
+
                 navigate('/admin-dashboard');
             } else if (data.user.status === 'active') {
                 navigate('/Dashboard');

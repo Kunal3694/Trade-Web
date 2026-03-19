@@ -10,10 +10,8 @@ const getLedgerEntries = async (req, res) => {
         let match = {};
 
         if (req.user.role !== 'admin') {
-            // USER SIDE — filter strictly by their mob_num AND exclude admin-only entries
-            match.mob_num = req.user.mob_num;
-            match.is_admin_only = { $ne: true };
-            match.description = { $not: /^(Master Trade Executed:|Master Trade Closed:)/ };
+            // USER SIDE — filter strictly by their mob_num
+            match.mob_num = String(req.user.mob_num);
         }
 
         const entries = await LedgerEntry.aggregate([
@@ -67,11 +65,10 @@ const getLedgerEntries = async (req, res) => {
     }
 };
 
-// @desc    Get user ledger summary (Breakdown)
 // @route   GET /api/ledger/summary
 const getLedgerSummary = async (req, res) => {
     try {
-        const mob_num = req.user.mob_num;
+        const mob_num = String(req.user.mob_num);
         const entries = await LedgerEntry.find({ mob_num });
 
         let baseDeposit = 0;

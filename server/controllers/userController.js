@@ -15,8 +15,9 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ msg: "This mobile number is reserved for Admin" });
     }
 
-    const existingUser = await User.findOne({ mob_num });
-    const existingAdmin = await Admin.findOne({ mob_num });
+    const mob_num_str = String(mob_num);
+    const existingUser = await User.findOne({ mob_num: mob_num_str });
+    const existingAdmin = await Admin.findOne({ mob_num: mob_num_str });
 
     if (existingUser || existingAdmin) {
       return res.status(400).json({ msg: "Mobile number already in use" });
@@ -60,23 +61,36 @@ const registerUser = async (req, res) => {
 const loginUser = async (req, res) => {
   try {
     const { mob_num, password, isAdminMode } = req.body;
+    console.log(`[LOGIN ATTEMPT] Mob: ${mob_num}, AdminMode: ${isAdminMode}`);
+
+    if (!process.env.JWT_SECRET) {
+      console.error("[CRITICAL] JWT_SECRET is missing from environment variables");
+      return res.status(500).json({ msg: "Server configuration error: JWT_SECRET missing" });
+    }
 
     let user;
     let role;
 
+    const mob_num_str = String(mob_num);
     if (isAdminMode) {
-      user = await Admin.findOne({ mob_num }).lean();
+      console.log(`[LOGIN DEBUG] Looking for Admin with mob_num: ${mob_num_str}`);
+      user = await Admin.findOne({ mob_num: mob_num_str }).lean();
       role = "admin";
       if (!user) return res.status(400).json({ msg: "Admin account not found for this mobile number" });
     } else {
-      user = await User.findOne({ mob_num }).lean();
+      user = await User.findOne({ mob_num: mob_num_str }).lean();
       role = user ? user.role : "user";
       if (!user) return res.status(400).json({ msg: "User account not found for this mobile number" });
     }
 
+    console.log(`[LOGIN DEBUG] User found: ${user.user_name}, Role: ${role}`);
+
     const isMatch = await bcrypt.compare(password, user.password);
+    console.log(`[LOGIN DEBUG] Password match: ${isMatch}`);
+
     if (!isMatch) return res.status(400).json({ msg: "Invalid password" });
 
+    console.log("[LOGIN DEBUG] Attempting to sign JWT...");
     const token = jwt.sign(
       { id: user._id, mob_num: user.mob_num, role },
       process.env.JWT_SECRET,
@@ -139,12 +153,13 @@ const updateUser = async (req, res) => {
     if (!user) return res.status(404).json({ msg: "User not found" });
 
     const ADMIN_MOBILE = "1234567890";
-    if (mob_num && mob_num !== user.mob_num) {
-      if (mob_num === ADMIN_MOBILE) {
+    if (mob_num && String(mob_num) !== user.mob_num) {
+      const mob_num_str = String(mob_num);
+      if (mob_num_str === ADMIN_MOBILE) {
         return res.status(400).json({ msg: "This mobile number is reserved for Admin" });
       }
-      const existingUser = await User.findOne({ mob_num });
-      const existingAdmin = await Admin.findOne({ mob_num });
+      const existingUser = await User.findOne({ mob_num: mob_num_str });
+      const existingAdmin = await Admin.findOne({ mob_num: mob_num_str });
       if (existingUser || existingAdmin) {
         return res.status(400).json({ msg: "Mobile number already in use" });
       }

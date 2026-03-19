@@ -62,7 +62,8 @@ const allocateTrade = async (req, res) => {
         const allocationDocs = [];
 
         for (const alloc of allocations) {
-            const user = await User.findOne({ mob_num: alloc.mob_num });
+            const mob_num = String(alloc.mob_num);
+            const user = await User.findOne({ mob_num: mob_num });
             if (!user) return res.status(404).json({ message: `User ${alloc.mob_num} not found` });
 
             const allocation_id = "AL-" + Date.now() + Math.floor(Math.random() * 1000);
@@ -384,7 +385,8 @@ const getTrades = async (req, res) => {
 // @route   GET /api/trades/my-allocations
 const getClientAllocations = async (req, res) => {
     try {
-        const allocations = await AllocationTrade.find({ mob_num: req.user.mob_num })
+        const mob_num = String(req.user.mob_num);
+        const allocations = await AllocationTrade.find({ mob_num: mob_num })
             .populate('master_trade_id', 'symbol')
             .sort({ createdAt: -1 })
             .lean();

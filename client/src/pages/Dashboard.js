@@ -14,33 +14,38 @@ const Dashboard = () => {
     const [metrics, setMetrics] = useState({
         totalPnL: 0,
         completedTrades: 0,
-        winRate: 0,
         invested: 0,
         currentValue: 0
     });
 
     // 1. Fetch Data from Backend
+    // client/src/pages/Dashboard.js
+
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [tradesRes, ledgerRes] = await Promise.all([
+                // Updated to use the new user-specific ledger API
+                const [tradesRes, ledgerRes, statsRes] = await Promise.all([
                     api.get('/trades/my-allocations/list'),
-                    api.get('/ledger/summary')
+                    api.get('/user-ledger/entries'),
+                    api.get('/user-ledger/summary')
                 ]);
+
                 setTrades(tradesRes.data);
-                setLedgerSummary(ledgerRes.data);
-                calculateMetrics(tradesRes.data, ledgerRes.data);
+                setLedgerSummary(statsRes.data); // Correctly use the summary object
+
+                calculateMetrics(tradesRes.data, statsRes.data);
             } catch (error) {
-                console.error("Error fetching data:", error);
+                console.error("Error fetching user data:", error);
             }
         };
         fetchData();
     }, []);
 
+
     // 2. Calculate Dashboard Numbers on the fly using NEW schema fields
     const calculateMetrics = (data, ledger) => {
         let pnl = ledger.previousProfit || 0;
-        let wins = 0;
         let completed = 0;
         let investedAmount = 0;
         let currentValueAmount = 0;
@@ -48,7 +53,6 @@ const Dashboard = () => {
         data.forEach(trade => {
             if (trade.status === 'CLOSED') {
                 completed++;
-                if (trade.client_pnl > 0) wins++;
             }
             if (trade.status === 'OPEN') {
                 investedAmount += (trade.total_value || 0);
@@ -59,7 +63,6 @@ const Dashboard = () => {
         setMetrics({
             totalPnL: ledger.previousProfit + ledger.currentPL,
             completedTrades: completed,
-            winRate: completed > 0 ? ((wins / completed) * 100).toFixed(0) : 0,
             invested: investedAmount,
             currentValue: currentValueAmount
         });

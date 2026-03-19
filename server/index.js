@@ -9,6 +9,7 @@ const ledgerRoutes = require('./routes/ledgerRoutes');
 const userRoutes = require("./routes/userRoutes");
 const excelRoutes = require('./routes/excelRoutes');
 const ruleRoutes = require("./routes/ruleRoutes");
+const userLedgerRoutes = require("./routes/userLedgerRoutes");
 const { authMiddleware } = require("./middleware/authMiddleware");
 
 // Load env vars
@@ -44,7 +45,8 @@ app.use("/api/rules", ruleRoutes);
 console.log("[DEBUG] Registered /api/rules");
 app.use('/api/trades', tradeRoutes);
 app.use('/api/ledger', ledgerRoutes);
-app.use("/api/users", userRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/user-ledger', userLedgerRoutes);
 app.use('/api/reports', excelRoutes);
 
 // Basic Route for testing

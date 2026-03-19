@@ -14,16 +14,22 @@ const Ledger = () => {
         const storedUser = localStorage.getItem('userInfo');
         if (storedUser) {
             const parsedInfo = JSON.parse(storedUser);
+            const userData = parsedInfo.user || {};
             setUserProfile({
-                name: parsedInfo.user_name || 'User',
-                clientId: parsedInfo.client_id || 'N/A'
+                name: userData.user_name || 'User',
+                clientId: userData.client_id || 'N/A'
             });
         }
 
         const fetchLedger = async () => {
             try {
-                const { data } = await api.get('/ledger');
+                const { data } = await api.get('/user-ledger/entries');
                 console.log("RAW LEDGER DATA:", data);
+                if (!Array.isArray(data)) {
+                    console.error("Ledger data is not an array:", data);
+                    setLedger([]);
+                    return;
+                }
                 // Calculate Running Balance on the Frontend for display accuracy
                 // Backend sends data sorted { entry_date: -1 } (newest first).
                 let currentBal = 0;
@@ -47,14 +53,17 @@ const Ledger = () => {
     }, []);
 
     // Filter logic
-    const filteredLedger = ledger.filter(row =>
-        row.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (row.amt_cr > 0 && row.amt_cr.toString().includes(searchQuery)) ||
-        (row.amt_dr > 0 && row.amt_dr.toString().includes(searchQuery))
-    );
+    const filteredLedger = ledger.filter(row => {
+        const desc = (row.description || '').toLowerCase();
+        const search = searchQuery.toLowerCase();
+        return desc.includes(search) ||
+            (row.amt_cr > 0 && row.amt_cr.toString().includes(searchQuery)) ||
+            (row.amt_dr > 0 && row.amt_dr.toString().includes(searchQuery));
+    });
 
     // Helper to extract brokerage
     const extractBrokerage = (desc) => {
+        if (!desc) return 0;
         const match = desc.match(/deducted [\d.]+%\s*brokerage:\s*₹([\d.]+)/i);
         return match ? parseFloat(match[1]) : 0;
     };

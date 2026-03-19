@@ -701,7 +701,7 @@ const AdminDashboard = () => {
                                                         <button className="btn btn-primary" style={{ padding: '5px 8px', fontSize: '0.75rem' }} onClick={(e) => { e.stopPropagation(); openAllocateModal(t); }}>Allocate</button>
                                                     )}
                                                     <button className="btn" style={{ padding: '5px 8px', fontSize: '0.75rem', background: 'var(--danger)', color: 'white', border: 'none' }} onClick={(e) => { e.stopPropagation(); openCloseModal(t); }}>Close Trade</button>
-                                                    <button className="btn" style={{ padding: '5px 8px', fontSize: '0.75rem', background: 'var(--warning)', color: 'white', border: 'none' }} onClick={(e) => { e.stopPropagation(); openFlagModal(t, 'TEM_CLOSE'); }}>M to M</button>
+                                                    <button className="btn" style={{ padding: '5px 8px', fontSize: '0.75rem', background: 'var(--warning)', color: 'white', border: 'none' }} onClick={(e) => { e.stopPropagation(); openFlagModal(t, 'M to M'); }}>M to M</button>
                                                 </div>
                                             )}
                                         </div>

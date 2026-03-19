@@ -21,14 +21,14 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 
-           'http://localhost:5173', 
-           'https://fin-trade.netlify.app', 
-           "https://smartsip.co.in",         
-           "https://www.smartsip.co.in"], 
-              credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'] // Allowed request types
-                            // Important if you use cookies or sessions
+  origin: ['http://localhost:3000',
+    'http://localhost:5173',
+    'https://fin-trade.netlify.app',
+    "https://smartsip.co.in",
+    "https://www.smartsip.co.in"],
+
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed request types
+  credentials: true,
 }));
 
 app.use(express.json()); // Allows us to accept JSON data in the body
@@ -55,6 +55,16 @@ app.get('/', (req, res) => {
 app.get("/api/protected", authMiddleware, (req, res) => {
   res.json({ msg: "Protected route working ✅", user: req.user });
 })
+
+// Error Handling Middleware
+app.use((err, req, res, next) => {
+  console.error(`[ERROR] ${new Date().toISOString()} - ${err.stack}`);
+  res.status(500).json({
+    msg: "Something went wrong on the server",
+    error: err.message,
+    stack: process.env.NODE_ENV === 'production' ? null : err.stack
+  });
+});
 
 const PORT = process.env.PORT || 5000;
 

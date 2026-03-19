@@ -1,13 +1,22 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL ||
-    (window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : 'https://backend-s5fv.onrender.com/api');
+let API_URL = process.env.REACT_APP_API_URL ||
+    (window.location.hostname === 'localhost' ? 'http://localhost:5000' : '');
+
+// Ensure /api suffix is present
+if (!API_URL.endsWith('/api')) {
+    API_URL = `${API_URL}/api`;
+}
+
+// If we are in production and same domain, ensure it starts with /api for domain-relative path
+if (API_URL === '/api') {
+    API_URL = '/api'; // This is already handled by the logic above if API_URL was ''
+}
 
 const api = axios.create({
     baseURL: API_URL,
 });
 
-// Add a request interceptor to automatically attach JWT token
 api.interceptors.request.use(
     (config) => {
         // Assuming token is stored in localStorage under 'userInfo'
@@ -29,7 +38,6 @@ api.interceptors.request.use(
     }
 );
 
-// Add a response interceptor to handle token expiration or unauthorized access
 api.interceptors.response.use(
     (response) => response,
     (error) => {

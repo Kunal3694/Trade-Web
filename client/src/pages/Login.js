@@ -47,7 +47,7 @@ const Login = () => {
             <div className="card" style={{ width: '100%', maxWidth: '400px', padding: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 
 
-                <div style={{ textAlign: 'center' }}>
+                <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
                     <div style={{
                         width: '48px', height: '48px', background: 'var(--primary)', borderRadius: '12px',
                         display: 'grid', placeItems: 'center', color: 'white', fontSize: '1.5rem', margin: '0 auto 1rem'
@@ -55,35 +55,9 @@ const Login = () => {
                         <i className="fas fa-layer-group"></i>
                     </div>
                     <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>BrokerConnect</h2>
-                </div>
-
-                <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: '0.5rem' }}>
-                    <button
-                        type="button"
-                        onClick={() => setIsAdminMode(false)}
-                        style={{
-                            flex: 1, padding: '12px', background: 'none', border: 'none', cursor: 'pointer',
-                            color: !isAdminMode ? 'var(--primary)' : 'var(--text-muted)',
-                            borderBottom: !isAdminMode ? '2px solid var(--primary)' : '2px solid transparent',
-                            fontWeight: '600', fontSize: '1rem', transition: 'all 0.3s',
-                            display: 'flex', justifyContent: 'center', alignItems: 'center'
-                        }}
-                    >
-                        User Login
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setIsAdminMode(true)}
-                        style={{
-                            flex: 1, padding: '12px', background: 'none', border: 'none', cursor: 'pointer',
-                            color: isAdminMode ? 'var(--primary)' : 'var(--text-muted)',
-                            borderBottom: isAdminMode ? '2px solid var(--primary)' : '2px solid transparent',
-                            fontWeight: '600', fontSize: '1rem', transition: 'all 0.3s',
-                            display: 'flex', justifyContent: 'center', alignItems: 'center'
-                        }}
-                    >
-                        Admin Login
-                    </button>
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                        {isAdminMode ? 'Admin Secure Portal' : 'User Terminal'}
+                    </p>
                 </div>
 
                 {error && <div style={{
@@ -116,7 +90,7 @@ const Login = () => {
                             required
                         />
                     </div>
-                    <button type="submit" className="btn btn-primary" style={{ 
+                    <button type="submit" className="btn btn-primary" style={{
                         width: '100%', padding: '12px', fontSize: '1rem', fontWeight: '600',
                         display: 'flex', justifyContent: 'center', alignItems: 'center'
                     }}>
@@ -130,6 +104,25 @@ const Login = () => {
                     ) : (
                         <span>Please login with phone number and password provided by developer.</span>
                     )}
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem', textAlign: 'center' }}>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setIsAdminMode(!isAdminMode);
+                            setError(''); // Clear error when switching
+                        }}
+                        style={{
+                            background: 'none', border: 'none', color: 'var(--primary)',
+                            fontSize: '0.9rem', fontWeight: '600', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                            margin: '0 auto'
+                        }}
+                    >
+                        <i className={`fas fa-${isAdminMode ? 'user' : 'user-shield'}`}></i>
+                        {isAdminMode ? 'Switch to User Login' : 'Login as Administrator'}
+                    </button>
                 </div>
 
             </div>

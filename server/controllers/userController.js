@@ -61,21 +61,21 @@ const loginUser = async (req, res) => {
   try {
     const { mob_num, password, isAdminMode } = req.body;
 
-    // let user;
-    // let role;
+    let user;
+    let role;
 
-    // if (isAdminMode) {
-    //   user = await Admin.findOne({ mob_num });
-    //   role = "admin";
-    //   if (!user) return res.status(400).json({ msg: "Admin account not found for this mobile number" });
-    // } else {
-    //   user = await User.findOne({ mob_num });
-    //   role = user ? user.role : null;
-    //   if (!user) return res.status(400).json({ msg: "User account not found for this mobile number" });
-    // }
+    if (isAdminMode) {
+      user = await Admin.findOne({ mob_num }).lean();
+      role = "admin";
+      if (!user) return res.status(400).json({ msg: "Admin account not found for this mobile number" });
+    } else {
+      user = await User.findOne({ mob_num }).lean();
+      role = user ? user.role : "user";
+      if (!user) return res.status(400).json({ msg: "User account not found for this mobile number" });
+    }
 
-    // const isMatch = await bcrypt.compare(password, user.password);
-    // if (!isMatch) return res.status(400).json({ msg: "Invalid password" });
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ msg: "Invalid password" });
 
     const token = jwt.sign(
       { id: user._id, mob_num: user.mob_num, role },
@@ -83,18 +83,29 @@ const loginUser = async (req, res) => {
       { expiresIn: "1d" }
     );
 
+    const responseUser = {
+      id: user._id,
+      user_name: user.user_name,
+      mob_num: user.mob_num,
+      role
+    };
+
+    if (role === 'user' || role === 'client') {
+      responseUser.client_id = user.client_id;
+      responseUser.status = user.status;
+    }
+
     res.json({
       token,
-      user: {
-        id: user._id,
-        user_name: user.user_name,
-        mob_num: user.mob_num,
-        role,
-        ...((role === 'user' || role === 'client') && { client_id: user.client_id, status: user.status })
-      }
+      user: responseUser
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("LOGIN ERROR:", err);
+    res.status(500).json({
+      msg: "Internal server error during login",
+      error: err.message,
+      stack: process.env.NODE_ENV === 'production' ? null : err.stack
+    });
   }
 };
 

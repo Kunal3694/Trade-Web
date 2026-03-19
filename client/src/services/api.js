@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL ||
-    (window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : : 'https://backend-s5fv.onrender.com/api');
+    (window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : 'https://backend-s5fv.onrender.com/api');
 
 const api = axios.create({
     baseURL: API_URL,
@@ -35,9 +35,9 @@ api.interceptors.response.use(
     (error) => {
         if (error.response) {
             console.error(`API Error [${error.response.status}]:`, error.response.data);
-            
+
             // If it's a 401 or 403, and we're not already on the login page
-            if ((error.response.status === 401 || error.response.status === 403) && 
+            if ((error.response.status === 401 || error.response.status === 403) &&
                 !window.location.pathname.includes('/login')) {
                 console.warn("Session expired or unauthorized access detected. Please log in again.");
                 // We don't force redirect here to avoid potential loops, 

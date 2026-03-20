@@ -52,6 +52,11 @@ const AdminDashboard = () => {
     const [showCloseModal, setShowCloseModal] = useState(false);
     const [closePrice, setClosePrice] = useState('');
 
+    const [showPartialModal, setShowPartialModal] = useState(false);
+    const [selectedAllocation, setSelectedAllocation] = useState(null);
+    const [partialSellQty, setPartialSellQty] = useState('');
+    const [partialSellPrice, setPartialSellPrice] = useState('');
+
     // Trigger Flag Modal
     const [showFlagModal, setShowFlagModal] = useState(false);
     const [flagType, setFlagType] = useState('');
@@ -322,6 +327,37 @@ const AdminDashboard = () => {
             fetchDashboardData();
         } catch (error) {
             alert(error.response?.data?.message || error.response?.data?.msg || "Error closing trade");
+        }
+        setIsSubmitting(false);
+    };
+
+    // ----- Partial Sell Logic -----
+    const openPartialModal = (alloc, trade) => {
+        setSelectedAllocation(alloc); // Can be null if opened from master level
+        setSelectedTrade(trade);
+        setPartialSellQty('');
+        setPartialSellPrice('');
+        setShowPartialModal(true);
+    };
+
+    const submitPartialSell = async () => {
+        if (!partialSellQty || !partialSellPrice) return alert("Please enter quantity and price");
+
+        if (Number(partialSellQty) >= selectedAllocation.allocation_qty) {
+            return alert("Quantity must be less than total allocation. Use regular close for full sell.");
+        }
+
+        setIsSubmitting(true);
+        try {
+            await api.post(`/trades/allocations/${selectedAllocation._id}/partial-sell`, {
+                sell_qty: Number(partialSellQty),
+                sell_price: Number(partialSellPrice)
+            });
+            alert("Partial sell successful!");
+            setShowPartialModal(false);
+            fetchDashboardData();
+        } catch (error) {
+            alert(error.response?.data?.message || error.response?.data?.msg || "Error executing partial sell");
         }
         setIsSubmitting(false);
     };
@@ -700,6 +736,7 @@ const AdminDashboard = () => {
                                                     {(t.allocated_qty || 0) === 0 && (
                                                         <button className="btn btn-primary" style={{ padding: '5px 8px', fontSize: '0.75rem' }} onClick={(e) => { e.stopPropagation(); openAllocateModal(t); }}>Allocate</button>
                                                     )}
+                                                    <button className="btn" style={{ padding: '5px 8px', fontSize: '0.75rem', background: 'var(--primary)', color: 'white', border: 'none' }} onClick={(e) => { e.stopPropagation(); openPartialModal(null, t); }}>Partial Sell</button>
                                                     <button className="btn" style={{ padding: '5px 8px', fontSize: '0.75rem', background: 'var(--danger)', color: 'white', border: 'none' }} onClick={(e) => { e.stopPropagation(); openCloseModal(t); }}>Close Trade</button>
                                                     <button className="btn" style={{ padding: '5px 8px', fontSize: '0.75rem', background: 'var(--warning)', color: 'white', border: 'none' }} onClick={(e) => { e.stopPropagation(); openFlagModal(t, 'M to M'); }}>M to M</button>
                                                 </div>
@@ -723,6 +760,15 @@ const AdminDashboard = () => {
                                                             <div style={{ textAlign: 'right' }}>
                                                                 <div style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>{alloc.allocation_qty} Qty</div>
                                                                 <div style={{ fontSize: '0.7rem', color: alloc.status === 'CLOSED' ? 'var(--danger)' : 'var(--success)' }}>{alloc.status}</div>
+                                                                {alloc.status === 'OPEN' && (
+                                                                    <button
+                                                                        className="btn"
+                                                                        style={{ padding: '2px 6px', fontSize: '0.65rem', marginTop: '4px', background: 'var(--primary)', color: 'white', border: 'none' }}
+                                                                        onClick={(e) => { e.stopPropagation(); openPartialModal(alloc, t); }}
+                                                                    >
+                                                                        Partial Close
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     ))
@@ -1433,6 +1479,84 @@ const AdminDashboard = () => {
                                 <button type="button" onClick={() => setShowGlobalFundsModal(false)} className="btn" style={{ flex: 1 }}>Cancel</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Partial Sell Modal */}
+            {showPartialModal && selectedTrade && (
+                <div style={modalOverlayStyle}>
+                    <div style={modalContentStyle}>
+                        <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Partial Sell Allocation</h3>
+
+                        {!selectedAllocation ? (
+                            <div style={{ marginBottom: '15px' }}>
+                                <label style={{ fontSize: '0.85rem', fontWeight: '600' }}>Select User Allocation</label>
+                                <select
+                                    style={inputStyle}
+                                    onChange={(e) => {
+                                        const allocId = e.target.value;
+                                        const alloc = allocations.find(a => a._id === allocId);
+                                        setSelectedAllocation(alloc);
+                                    }}
+                                    defaultValue=""
+                                >
+                                    <option value="" disabled>Select User...</option>
+                                    {allocations
+                                        .filter(a => a.master_trade_id?._id === selectedTrade._id && a.status === 'OPEN')
+                                        .map(a => (
+                                            <option key={a._id} value={a._id}>
+                                                {getUserDisplayName(a.mob_num, a.user_name)} ({a.allocation_qty} Qty)
+                                            </option>
+                                        ))
+                                    }
+                                </select>
+                            </div>
+                        ) : (
+                            <div style={{ marginBottom: '15px', padding: '10px', background: 'var(--bg-body)', borderRadius: '6px', fontSize: '0.85rem' }}>
+                                <p><strong>User:</strong> {getUserDisplayName(selectedAllocation.mob_num, selectedAllocation.user_name)}</p>
+                                <p><strong>Total Qty:</strong> {selectedAllocation.allocation_qty}</p>
+                                <p><strong>Avg Buy:</strong> ₹{selectedAllocation.allocation_price.toFixed(2)}</p>
+                                <button className="btn" style={{ fontSize: '0.7rem', marginTop: '5px', padding: '2px 8px' }} onClick={() => setSelectedAllocation(null)}>Change User</button>
+                            </div>
+                        )}
+
+                        {selectedAllocation && (
+                            <form onSubmit={(e) => { e.preventDefault(); submitPartialSell(); }}>
+                                <label style={{ fontSize: '0.85rem', fontWeight: '600' }}>Sell Quantity</label>
+                                <input
+                                    style={inputStyle}
+                                    type="number"
+                                    placeholder={`Max: ${selectedAllocation.allocation_qty - 1}`}
+                                    value={partialSellQty}
+                                    onChange={e => setPartialSellQty(e.target.value)}
+                                    required
+                                    min="1"
+                                    max={selectedAllocation.allocation_qty - 1}
+                                />
+
+                                <label style={{ fontSize: '0.85rem', fontWeight: '600' }}>Sell Price</label>
+                                <input
+                                    style={inputStyle}
+                                    type="number"
+                                    step="0.01"
+                                    value={partialSellPrice}
+                                    onChange={e => setPartialSellPrice(e.target.value)}
+                                    required
+                                    min="0.01"
+                                />
+
+                                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                                    <button type="submit" disabled={isSubmitting} className="btn btn-primary" style={{ flex: 1 }}>
+                                        {isSubmitting ? 'Confirming...' : 'Execute Sell'}
+                                    </button>
+                                    <button type="button" onClick={() => setShowPartialModal(false)} className="btn" style={{ flex: 1 }}>Cancel</button>
+                                </div>
+                            </form>
+                        )}
+                        {!selectedAllocation && (
+                            <button type="button" onClick={() => setShowPartialModal(false)} className="btn" style={{ width: '100%', marginTop: '10px' }}>Cancel</button>
+                        )}
                     </div>
                 </div>
             )}

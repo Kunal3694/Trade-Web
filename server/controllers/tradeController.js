@@ -32,7 +32,8 @@ const createTrade = async (req, res) => {
             cls_balance: 0,
             trade_id: trade._id,
             description: `Master Trade Executed: ${symbol} (${total_qty} qty)`,
-            is_admin_only: true
+            is_admin_only: true,
+            entryCategory: 'TRADE_INIT'
         });
 
         res.status(201).json(trade);
@@ -97,8 +98,30 @@ const allocateTrade = async (req, res) => {
                 amt_dr: total_deduction,
                 cls_balance: user.current_balance,
                 trade_id: trade._id,
-                description: `Allocated ${alloc.allocation_qty} of ${trade.symbol} | Price: ₹${trade.buy_price.toFixed(2)} | Value: ₹${total_value.toFixed(2)} | Brokerage: ${user_brokerage_rate}% (₹${buy_brokerage.toFixed(2)}) | Net Total: ₹${total_deduction.toFixed(2)}`
+                description: `Allocated ${alloc.allocation_qty} of ${trade.symbol} | Price: ₹${trade.buy_price.toFixed(2)} | Value: ₹${total_value.toFixed(2)} | Brokerage: ${user_brokerage_rate}% (₹${buy_brokerage.toFixed(2)}) | Net Total: ₹${total_deduction.toFixed(2)}`,
+                entryCategory: 'TRADE_INIT'
             });
+
+            // Credit Buy Brokerage to Admin Account
+            if (buy_brokerage > 0 && req.user && req.user.mob_num) {
+                const adminUser = await require('../models/Admin').findOne({ mob_num: req.user.mob_num });
+                if (adminUser) {
+                    adminUser.current_balance += buy_brokerage;
+                    await adminUser.save();
+                    await LedgerEntry.create({
+                        mob_num: req.user.mob_num,
+                        act_type: 'CREDIT',
+                        amt_cr: buy_brokerage,
+                        amt_dr: 0,
+                        cls_balance: adminUser.current_balance,
+                        trade_id: trade._id,
+                        description: `Brokerage Received: ${user.user_name} allocated ${trade.symbol}`,
+                        is_admin_only: true,
+                        entryCategory: 'BROKERAGE'
+                    });
+                }
+            }
+
         }
 
         if (allocationDocs.length > 0) {
@@ -191,8 +214,29 @@ const closeTrade = async (req, res) => {
                     amt_dr: 0,
                     cls_balance,
                     trade_id: trade._id,
-                    description: desc
+                    description: desc,
+                    entryCategory: 'USER_PNL'
                 });
+
+                // Credit Sell Brokerage to Admin Account
+                if (total_sell_brokerage > 0 && req.user && req.user.mob_num) {
+                    const adminUser = await require('../models/Admin').findOne({ mob_num: req.user.mob_num });
+                    if (adminUser) {
+                        adminUser.current_balance += total_sell_brokerage;
+                        await adminUser.save();
+                        await LedgerEntry.create({
+                            mob_num: req.user.mob_num,
+                            act_type: 'CREDIT',
+                            amt_cr: total_sell_brokerage,
+                            amt_dr: 0,
+                            cls_balance: adminUser.current_balance,
+                            trade_id: trade._id,
+                            description: `Brokerage Received: ${user.user_name} trade closed ${trade.symbol}`,
+                            is_admin_only: true,
+                            entryCategory: 'BROKERAGE'
+                        });
+                    }
+                }
 
                 user.current_balance = cls_balance;
                 await user.save();
@@ -207,7 +251,8 @@ const closeTrade = async (req, res) => {
             cls_balance: 0,
             trade_id: trade._id,
             description: `Master Trade Closed: ${trade.symbol}. Gross P&L: ₹${trade.master_pnl.toFixed(2)}`,
-            is_admin_only: true
+            is_admin_only: true,
+            entryCategory: 'TRADE_INIT'
         });
 
         // Delete all temporary M2M ledger entries for this trade
@@ -672,8 +717,29 @@ const partialSellAllocation = async (req, res) => {
             amt_dr: 0,
             cls_balance: user.current_balance,
             trade_id: trade._id,
-            description: desc
+            description: desc,
+            entryCategory: 'USER_PNL'
         });
+
+        // Credit Sell Brokerage to Admin Account
+        if (sell_brokerage > 0 && req.user && req.user.mob_num) {
+            const adminUser = await require('../models/Admin').findOne({ mob_num: req.user.mob_num });
+            if (adminUser) {
+                adminUser.current_balance += sell_brokerage;
+                await adminUser.save();
+                await LedgerEntry.create({
+                    mob_num: req.user.mob_num,
+                    act_type: 'CREDIT',
+                    amt_cr: sell_brokerage,
+                    amt_dr: 0,
+                    cls_balance: adminUser.current_balance,
+                    trade_id: trade._id,
+                    description: `Brokerage Received: ${user.user_name} partial sell ${trade.symbol}`,
+                    is_admin_only: true,
+                    entryCategory: 'BROKERAGE'
+                });
+            }
+        }
 
         // 5. SPLIT Master Trade document
         // Create a CLOSED Master Trade for the sold portion

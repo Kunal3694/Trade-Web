@@ -46,7 +46,7 @@ const Dashboard = () => {
                 });
                 setLedgerEntries(withBalance.reverse().slice(0, 2));
 
-                calculateMetrics(tradesRes.data, statsRes.data);
+                calculateMetrics(validTrades, statsRes.data);
             } catch (error) {
                 console.error("Error fetching user data:", error);
             } finally {
@@ -59,20 +59,20 @@ const Dashboard = () => {
     const calculateMetrics = (data, ledger) => {
         let completed = 0;
         let investedAmount = 0;
-        let currentValueAmount = 0;
+        let realizedPnL = 0;
+        let unrealizedPnL = 0;
 
         data.forEach(trade => {
             if (trade.status === 'CLOSED') {
                 completed++;
+                realizedPnL += (trade.client_pnl || 0);
             }
             if (trade.status === 'OPEN') {
                 investedAmount += (trade.total_value || 0);
-                currentValueAmount += (trade.current_value || 0);
+                unrealizedPnL += (trade.client_pnl || 0);
             }
         });
 
-        const realizedPnL = (ledger.previousProfit || 0) + (ledger.currentPL || 0);
-        const unrealizedPnL = currentValueAmount - investedAmount;
         const netAssetValue = (ledger.baseDeposit || 0) + realizedPnL + unrealizedPnL;
 
         setMetrics({

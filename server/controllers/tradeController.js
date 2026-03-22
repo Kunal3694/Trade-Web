@@ -319,6 +319,7 @@ const triggerFlag = async (req, res) => {
                     }
                     totalAdminM2MPnl += totalUserPnl;
 
+                    /* User-side M2M Entry Disabled 
                     const desc = `M to M Update | Symbol: ${trade.symbol} | CMP: ₹${Number(activePrice).toFixed(2)} | Qty: ${totalQty} | P&L: ₹${totalUserPnl.toFixed(2)}`;
 
                     let existingM2M = await LedgerEntry.findOne({
@@ -348,6 +349,7 @@ const triggerFlag = async (req, res) => {
                             description: desc
                         });
                     }
+                    */
                 } else {
                     const desc = `Trade Alert: ${actionName} for ${trade.symbol} at ₹${Number(activePrice).toFixed(2)} (Day ${day})`;
                     const regexPrefix = `Trade Alert: ${actionName} for ${trade.symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`;

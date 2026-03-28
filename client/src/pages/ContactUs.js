@@ -28,14 +28,13 @@ const ContactUs = () => {
     useEffect(() => {
         const fetchContact = async () => {
             try {
-                // Fetch from Admin profile (contact_details stored there)
-                const { data } = await api.get('/users/profile');
-                if (data?.contact_details && Object.keys(data.contact_details).length > 0) {
-                    setContact({ ...DEFAULT_CONTACT, ...data.contact_details });
-                    setForm({ ...DEFAULT_CONTACT, ...data.contact_details });
+                // Public endpoint - returns shared contact details for everyone
+                const { data } = await api.get('/contact');
+                if (data && (data.email || data.phone)) {
+                    setContact({ ...DEFAULT_CONTACT, ...data });
+                    setForm({ ...DEFAULT_CONTACT, ...data });
                 }
             } catch (error) {
-                // Not logged in or error - show defaults
                 console.warn('Could not fetch contact details:', error.message);
             }
         };
@@ -52,9 +51,9 @@ const ContactUs = () => {
         e.preventDefault();
         setSaving(true);
         try {
-            // Save via existing profile PUT endpoint
-            await api.put('/users/profile', { contact_details: form });
-            setContact(form);
+            // Admin-only PUT endpoint saves to DB Contact collection
+            const { data } = await api.put('/contact', form);
+            setContact({ ...DEFAULT_CONTACT, ...data });
             setIsEditing(false);
             setMessage('Contact details updated successfully!');
             setTimeout(() => setMessage(''), 3000);
@@ -66,6 +65,7 @@ const ContactUs = () => {
             setSaving(false);
         }
     };
+
 
     const inputStyle = {
         width: '100%', padding: '10px', marginBottom: '15px',

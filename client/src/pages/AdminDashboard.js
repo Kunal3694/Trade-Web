@@ -527,6 +527,21 @@ const AdminDashboard = () => {
         return sortedData(filtered, 'date');
     }, [currentTrades, currentDateFilter, sortedData]);
 
+    const userMap = useMemo(() => {
+        const map = {};
+        users.forEach(u => {
+            if (u.mob_num) map[String(u.mob_num).trim()] = u.user_name;
+        });
+        return map;
+    }, [users]);
+
+    const getUserDisplayName = (mob_num, backEndName) => {
+        if (backEndName && isNaN(backEndName) && backEndName !== 'N/A') return backEndName;
+        const cleanMob = String(mob_num || '').trim();
+        if (userMap[cleanMob]) return userMap[cleanMob];
+        return mob_num || 'N/A';
+    };
+
     const sortedAllocations = useMemo(() => {
         let filtered = allocations.filter(a => {
             const matchesStatus = allocFilterStatus === 'ALL' || a.status === allocFilterStatus;
@@ -566,20 +581,7 @@ const AdminDashboard = () => {
         return sortedData(filtered, 'entry_date');
     }, [ledger, ledgerSearch, sortedData]);
 
-    const userMap = useMemo(() => {
-        const map = {};
-        users.forEach(u => {
-            if (u.mob_num) map[String(u.mob_num).trim()] = u.user_name;
-        });
-        return map;
-    }, [users]);
 
-    const getUserDisplayName = (mob_num, backEndName) => {
-        if (backEndName && isNaN(backEndName) && backEndName !== 'N/A') return backEndName;
-        const cleanMob = String(mob_num || '').trim();
-        if (userMap[cleanMob]) return userMap[cleanMob];
-        return mob_num || 'N/A';
-    };
 
 
     const thStyle = { padding: '12px', borderBottom: '2px solid var(--border)', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' };
@@ -654,7 +656,7 @@ const AdminDashboard = () => {
                                 <div style={{ textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.1)', padding: '10px 5px' }} onClick={() => requestSort('brokerage')}>Brok % {sortConfig.key === 'brokerage' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
                                 <div style={{ textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.1)', padding: '10px 5px' }} onClick={() => requestSort('current_balance')}>Balance {sortConfig.key === 'current_balance' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
                                 <div style={{ textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.1)', padding: '10px 5px' }} onClick={() => requestSort('status')}>Status {sortConfig.key === 'status' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-                                <div style={{ textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.1)', padding: '10px 5px' }}>GL</div>
+                                <div style={{ textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.1)', padding: '10px 5px' }}>RL</div>
                                 <div style={{ textAlign: 'center', padding: '10px 5px' }}>Actions</div>
                             </div>
                             {sortedUsers.map(u => (
@@ -692,14 +694,14 @@ const AdminDashboard = () => {
                                         </span>
                                     </div>
                                     <div className="box-table-cell" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', borderRight: '1px solid var(--border)', padding: '10px 5px' }}>
-                                        <span className="cell-label">GL</span>
+                                        <span className="cell-label">RL</span>
                                         <button 
                                             className="btn" 
                                             style={{ padding: '6px', fontSize: '0.8rem', background: 'var(--warning)', color: 'white', border: 'none', borderRadius: '4px' }}
                                             onClick={() => {
-                                                setLedgerSearchInput(u.mob_num);
-                                                setLedgerSearch(u.mob_num);
-                                                setActiveTab('gl_ledger');
+                                                setLedgerSearchInput(u.user_name);
+                                                setLedgerSearch(u.user_name);
+                                                setActiveTab('realise_ledger');
                                             }}
                                             title="View Ledger"
                                         >

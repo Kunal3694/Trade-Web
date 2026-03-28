@@ -10,6 +10,7 @@ import Ledger from './pages/Ledger';
 import Trades from './pages/Trade';
 import Settings from './pages/Settings';
 import Rules from './pages/Rules';
+import ContactUs from './pages/ContactUs';
 
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -36,6 +37,9 @@ function App() {
         <Route path="/trades" element={<ProtectedRoute><Trades /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/rules" element={<ProtectedRoute><Rules /></ProtectedRoute>} />
+        
+        {/* Public Routes */}
+        <Route path="/contact-us" element={<ContactUs />} />
 
         {/* Admin Protected Routes */}
         <Route path="/admin-dashboard" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />

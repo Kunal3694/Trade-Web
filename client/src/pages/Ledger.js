@@ -67,13 +67,6 @@ const Ledger = () => {
             (row.amt_dr > 0 && row.amt_dr.toString().includes(searchQuery));
     });
 
-    // Helper to extract brokerage
-    const extractBrokerage = (desc) => {
-        if (!desc) return 0;
-        const match = desc.match(/deducted [\d.]+%\s*brokerage:\s*₹([\d.]+)/i);
-        return match ? parseFloat(match[1]) : 0;
-    };
-
     return (
         <Layout title="Ledger Book">
             {loading && <Loader />}
@@ -112,20 +105,18 @@ const Ledger = () => {
                 </div>
 
                 <div className="box-table-container">
-                    <div className="box-table-header" style={{ gridTemplateColumns: 'minmax(120px, 1fr) 2fr 0.8fr 1fr 1fr 1.2fr' }}>
+                    <div className="box-table-header" style={{ gridTemplateColumns: 'minmax(120px, 1fr) 2fr 1fr 1fr 1.2fr' }}>
                         <div>Date</div>
                         <div>Particulars</div>
-                        <div style={{ textAlign: 'right' }}>Brokerage</div>
                         <div style={{ textAlign: 'right' }}>Debit</div>
                         <div style={{ textAlign: 'right' }}>Credit</div>
                         <div style={{ textAlign: 'right' }}>Running Bal</div>
                     </div>
                     {filteredLedger.map(row => {
-                        const brokerage = extractBrokerage(row.description);
                         const isCredit = row.amt_cr > 0;
                         const isDebit = row.amt_dr > 0;
                         return (
-                            <div className="box-table-row" key={row._id} style={{ gridTemplateColumns: 'minmax(120px, 1fr) 2fr 0.8fr 1fr 1fr 1.2fr', borderLeft: `4px solid ${isCredit ? 'var(--success)' : (isDebit ? 'var(--danger)' : 'var(--border)')}` }}>
+                            <div className="box-table-row" key={row._id} style={{ gridTemplateColumns: 'minmax(120px, 1fr) 2fr 1fr 1fr 1.2fr', borderLeft: `4px solid ${isCredit ? 'var(--success)' : (isDebit ? 'var(--danger)' : 'var(--border)')}` }}>
                                 <div className="box-table-cell">
                                     <span className="cell-label">Date</span>
                                     {formatDate(row.entry_date)}
@@ -133,10 +124,6 @@ const Ledger = () => {
                                 <div className="box-table-cell">
                                     <span className="cell-label">Particulars</span>
                                     {row.description}
-                                </div>
-                                <div className="box-table-cell font-mono" style={{ textAlign: 'right', color: 'var(--danger)' }}>
-                                    <span className="cell-label">Brokerage</span>
-                                    {brokerage > 0 ? `₹${brokerage.toFixed(2)}` : '-'}
                                 </div>
                                 <div className="box-table-cell font-mono" style={{ textAlign: 'right', color: 'var(--danger)' }}>
                                     <span className="cell-label">Debit</span>

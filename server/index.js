@@ -10,6 +10,7 @@ const userRoutes = require("./routes/userRoutes");
 const excelRoutes = require('./routes/excelRoutes');
 const ruleRoutes = require("./routes/ruleRoutes");
 const userLedgerRoutes = require("./routes/userLedgerRoutes");
+const contactRoutes = require("./routes/contactRoutes");
 const { authMiddleware } = require("./middleware/authMiddleware");
 
 // Load env vars
@@ -46,6 +47,9 @@ console.log("[DEBUG] Registered /api/rules");
 app.use('/api/trades', tradeRoutes);
 app.use('/api/ledger', ledgerRoutes);
 app.use('/api/users', userRoutes);
+console.log("[DEBUG] Registering /api/contact");
+app.use('/api/contact', contactRoutes);
+console.log("[DEBUG] Registered /api/contact");
 app.use('/api/user-ledger', userLedgerRoutes);
 app.use('/api/reports', excelRoutes);
 

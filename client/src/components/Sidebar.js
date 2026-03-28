@@ -90,9 +90,14 @@ const Sidebar = ({ isOpen, onClose }) => {
                 <Link to="/settings" className={`nav-item ${isActive('/settings')}`} onClick={onClose}>
                     <i className="fas fa-cog"></i> <span>Settings</span>
                 </Link>
+                <Link to="/contact-us" className={`nav-item ${isActive('/contact-us')}`} onClick={onClose}>
+                    <i className="fas fa-envelope"></i> <span>Contact Us</span>
+                </Link>
+                {/* 
                 <Link to="/rules" className={`nav-item ${isActive('/rules')}`} onClick={onClose}>
                     <i className="fas fa-gavel"></i> <span>Rules</span>
                 </Link>
+                */}
 
                 {/* Fixed Logout Button */}
                 <div className="nav-item" onClick={handleLogout} style={{ marginTop: 'auto', color: 'var(--danger)', cursor: 'pointer' }}>

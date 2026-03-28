@@ -21,6 +21,10 @@ const adminSchema = new mongoose.Schema({
     current_balance: {
         type: Number,
         default: 0
+    },
+    contact_details: {
+        type: Object,
+        default: {}
     }
 }, { timestamps: true });
 

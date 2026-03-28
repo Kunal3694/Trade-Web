@@ -5,7 +5,7 @@ const SidebarLogo = () => {
         <img 
             src={require('../assets/logo.png')} 
             alt="Smart SIP Logo" 
-            style={{ width: '55px', height: '55px', objectFit: 'contain', display: 'block' }}
+            style={{ width: '60px', height: '60px', objectFit: 'contain', display: 'block' }}
         />
     );
 };

@@ -288,7 +288,7 @@ const getProfile = async (req, res) => {
 // @route   PUT /api/users/profile
 const updateProfile = async (req, res) => {
   try {
-    const { user_name } = req.body;
+    const { user_name, contact_details } = req.body;
     let user;
 
     if (req.user.role === 'admin') {
@@ -300,9 +300,10 @@ const updateProfile = async (req, res) => {
     if (!user) return res.status(404).json({ msg: "User not found" });
 
     if (user_name) user.user_name = user_name;
+    if (contact_details) user.contact_details = contact_details;
 
     await user.save();
-    res.json({ msg: "Profile updated successfully", user: { user_name: user.user_name } });
+    res.json({ msg: "Profile updated successfully", user: { user_name: user.user_name, contact_details: user.contact_details } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

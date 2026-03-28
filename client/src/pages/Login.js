@@ -62,13 +62,9 @@ const Login = () => {
                         <img 
                             src={require('../assets/logo.png')} 
                             alt="Smart SIP Logo" 
-                            style={{ width: '120px', height: '120px', objectFit: 'contain' }}
+                            style={{ width: '200px', height: '200px', objectFit: 'contain' }}
                         />
                     </div>
-                    <h2 style={{ fontSize: '1.4rem', fontWeight: '700' }}>Smart SIP</h2>
-                    <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-                        Secure Login Terminal
-                    </p>
                 </div>
 
                 {error && <div style={{
@@ -111,7 +107,7 @@ const Login = () => {
                 </form>
 
                 <div style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem', lineHeight: '1.4' }}>
-                    <span>Forgot password? Contact support for recovery.</span>
+                    <span onClick={() => navigate('/contact-us?from=login')} style={{ cursor: 'pointer', color: 'var(--primary)', textDecoration: 'underline' }}>Forgot password? Contact support for recovery.</span>
                 </div>
 
             </div>

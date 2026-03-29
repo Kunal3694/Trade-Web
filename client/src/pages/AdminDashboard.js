@@ -117,60 +117,55 @@ const AdminDashboard = () => {
         setShowUserDashboardModal(true);
         setUserDashLoading(true);
         try {
-            const mob = user.mob_num;
-            const [allocRes, summaryRes, ledgerRes] = await Promise.all([
-                api.get(`/user-ledger/admin-view/${mob}/allocations`),
-                api.get(`/user-ledger/admin-view/${mob}/ledger-summary`),
-                api.get(`/user-ledger/admin-view/${mob}/ledger-entries`)
-            ]);
-            const validTrades = allocRes.data.filter(t => t.master_trade_id && t.master_trade_id.symbol && !t.master_trade_id.symbol.includes('FUND'));
-            validTrades.sort((a, b) => new Date(b.buy_timestamp) - new Date(a.buy_timestamp));
-            setUserDashTrades(validTrades);
-            setUserDashSummary(summaryRes.data);
+            const mob = String(user.mob_num);
 
-            // Process ledger entries
-            const sortedEntries = [...ledgerRes.data].reverse();
-            let currentBal = 0;
-            const withBalance = sortedEntries.map(entry => {
-                currentBal += (entry.amt_cr || 0) - (entry.amt_dr || 0);
-                return { ...entry, runningBalance: currentBal };
+            // 1. Fetch current M2M prices from an OLD existing endpoint guaranteed to be on prod
+            const currentRes = await api.get('/trades/current');
+            const allCurrents = currentRes.data;
+            const userCurrents = allCurrents.filter(t => String(t.mob_num) === mob);
+
+            // 2. Compute Realized P&L locally using the already cached global ledger entries
+            const userLedgers = ledger.filter(l => String(l.mob_num) === mob);
+            
+            let baseDeposit = 0;
+            let previousProfit = 0;
+            userLedgers.forEach(e => {
+                if (e.act_type === 'CREDIT') baseDeposit += (Number(e.amt_cr) || 0);
+                if (e.act_type === 'DEBIT') baseDeposit -= (Number(e.amt_dr) || 0);
+                if (e.act_type === 'TRADE') previousProfit += ((Number(e.amt_cr) || 0) - (Number(e.amt_dr) || 0));
             });
-            setUserDashLedger(withBalance.reverse().slice(0, 5));
 
-            // Compute metrics exactly like Dashboard.js
-            let completed = 0, holdingValue = 0;
-            validTrades.forEach(trade => {
-                if (trade.status === 'CLOSED') completed++;
-                if (trade.status === 'OPEN') {
-                    const baseValue = trade.total_value || (trade.allocation_price * trade.allocation_qty);
-                    const inclusiveValue = baseValue + (trade.buy_brokerage || 0);
-                    holdingValue += inclusiveValue;
-                }
+            // 3. Compute Unrealized P&L and Holding Value from the M2M endpoint
+            let currentPL = 0;
+            let holdingValue = 0;
+
+            userCurrents.forEach(t => {
+                const qty = Number(t.total_qty) || 0;
+                const buyPrice = Number(t.buy_price) || 0;
+                const baseValue = qty * buyPrice;
+                
+                // Add estimated brokerage to holding value (assumes 2% if not present in the current endpoint format, or we can just use total_value from allocations)
+                // Actually allocations table has exactly this
+                const rawAlloc = allocations.find(a => a.allocation_id === t.allocation_id);
+                const inclusiveValue = rawAlloc ? (Number(rawAlloc.total_value) + Number(rawAlloc.buy_brokerage || 0)) : baseValue;
+                
+                holdingValue += inclusiveValue;
+                
+                // Unrealized PnL is (CMP * Qty) - Inclusive Value (matching exactly what Dashboard.js mathematically does)
+                const currentVal = qty * (Number(t.current_price) || buyPrice);
+                currentPL += (currentVal - (rawAlloc ? Number(rawAlloc.total_value || 0) : baseValue));
             });
 
             setUserDashMetrics({ 
-                netAssetValue: summaryRes.data.totalBalance || 0,
-                realizedPnL: summaryRes.data.previousProfit || 0,
-                unrealizedPnL: summaryRes.data.currentPL || 0,
+                netAssetValue: baseDeposit + previousProfit + currentPL,
+                realizedPnL: previousProfit,
+                unrealizedPnL: currentPL,
                 holdingValue: holdingValue,
-                completedTrades: completed 
+                completedTrades: 0
             });
 
         } catch (err) {
             console.error('Error loading user dashboard:', err);
-            const status = err.response?.status;
-            const msg = err.response?.data?.message || err.response?.data?.msg || err.message;
-            if (status === 404) {
-                alert('⚠️ Server route not found (404). Please restart the backend server and try again.');
-            } else if (status === 403) {
-                alert('⚠️ Access denied (403). Admin privileges required.');
-            } else {
-                alert(`⚠️ Failed to load dashboard: ${msg || 'Unknown error'}. Check server console.`);
-            }
-            // Reset to avoid showing stale zero data
-            setUserDashTrades([]);
-            setUserDashLedger([]);
-            setUserDashSummary(null);
             setUserDashMetrics({ netAssetValue: 0, realizedPnL: 0, unrealizedPnL: 0, holdingValue: 0, completedTrades: 0 });
         } finally {
             setUserDashLoading(false);

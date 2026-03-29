@@ -62,7 +62,7 @@ const Login = () => {
                         <img 
                             src={require('../assets/logo.png')} 
                             alt="Smart SIP Logo" 
-                            style={{ width: '200px', height: '200px', objectFit: 'contain' }}
+                            style={{ width: '265px', height: '265px', objectFit: 'contain' }}
                         />
                     </div>
                 </div>

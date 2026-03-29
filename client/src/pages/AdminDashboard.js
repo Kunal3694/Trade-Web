@@ -153,7 +153,7 @@ const AdminDashboard = () => {
                 
                 // Unrealized PnL is (CMP * Qty) - Inclusive Value (matching exactly what Dashboard.js mathematically does)
                 const currentVal = qty * (Number(t.current_price) || buyPrice);
-                currentPL += (currentVal - (rawAlloc ? Number(rawAlloc.total_value || 0) : baseValue));
+                currentPL += (currentVal - inclusiveValue);
             });
 
             setUserDashMetrics({ 
@@ -2023,20 +2023,29 @@ const AdminDashboard = () => {
                                 <>
                                     {/* Metrics Grid */}
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-                                        {[
-                                            { label: 'Net Asset Value', value: `₹ ${userDashMetrics.netAssetValue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`, color: '#6366f1', icon: 'fa-wallet' },
-                                            { label: 'Realized P&L', value: `${userDashMetrics.realizedPnL >= 0 ? '+' : ''}₹ ${userDashMetrics.realizedPnL?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`, color: userDashMetrics.realizedPnL >= 0 ? 'var(--success)' : 'var(--danger)', icon: 'fa-chart-line' },
-                                            { label: 'Unrealized P&L', value: `${userDashMetrics.unrealizedPnL >= 0 ? '+' : ''}₹ ${userDashMetrics.unrealizedPnL?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`, color: userDashMetrics.unrealizedPnL >= 0 ? 'var(--success)' : 'var(--danger)', icon: 'fa-chart-area' },
-                                            { label: 'Holding Value', value: `₹ ${userDashMetrics.holdingValue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`, color: 'var(--warning)', icon: 'fa-layer-group' }
-                                        ].map((m, i) => (
-                                            <div key={i} className="card" style={{ borderLeft: `4px solid ${m.color}`, padding: '1.2rem' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                                    <i className={`fas ${m.icon}`} style={{ color: m.color, fontSize: '0.85rem' }}></i>
-                                                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{m.label}</span>
-                                                </div>
-                                                <div style={{ fontSize: '1.3rem', fontWeight: '800', color: m.color }}>{m.value}</div>
+                                        <div className="card" style={{ borderLeft: '4px solid var(--primary)', padding: '1.2rem' }}>
+                                            <div className="metric-label" style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Net Asset Value</div>
+                                            <div style={{ fontSize: '1.6rem', fontWeight: '800', color: 'var(--text-main)' }}>₹ {userDashMetrics.netAssetValue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}</div>
+                                        </div>
+
+                                        <div className="card" style={{ borderLeft: '4px solid var(--success)', padding: '1.2rem' }}>
+                                            <div className="metric-label" style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Realized P&L</div>
+                                            <div className={userDashMetrics.realizedPnL >= 0 ? "text-up" : "text-down"} style={{ fontSize: '1.6rem', fontWeight: '800' }}>
+                                                {userDashMetrics.realizedPnL >= 0 ? '+' : ''} ₹ {userDashMetrics.realizedPnL?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
                                             </div>
-                                        ))}
+                                        </div>
+
+                                        <div className="card" style={{ borderLeft: '4px solid var(--warning)', padding: '1.2rem' }}>
+                                            <div className="metric-label" style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Unrealized P&L</div>
+                                            <div className={userDashMetrics.unrealizedPnL >= 0 ? "text-up" : "text-down"} style={{ fontSize: '1.6rem', fontWeight: '800' }}>
+                                                {userDashMetrics.unrealizedPnL >= 0 ? '+' : ''} ₹ {userDashMetrics.unrealizedPnL?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                                            </div>
+                                        </div>
+
+                                        <div className="card" style={{ borderLeft: '4px solid var(--primary-dark)', padding: '1.2rem' }}>
+                                            <div className="metric-label" style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Holding Value</div>
+                                            <div style={{ fontSize: '1.6rem', fontWeight: '800', color: 'var(--text-main)' }}>₹ {userDashMetrics.holdingValue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}</div>
+                                        </div>
                                     </div>
 
                                 </>

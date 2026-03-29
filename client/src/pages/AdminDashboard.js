@@ -103,6 +103,80 @@ const AdminDashboard = () => {
     const [globalFundsDescription, setGlobalFundsDescription] = useState('');
     const [allocUserSearch, setAllocUserSearch] = useState('');
 
+    // User Dashboard Display Modal
+    const [showUserDashboardModal, setShowUserDashboardModal] = useState(false);
+    const [viewingUser, setViewingUser] = useState(null);
+    const [userDashLoading, setUserDashLoading] = useState(false);
+    const [userDashTrades, setUserDashTrades] = useState([]);
+    const [userDashLedger, setUserDashLedger] = useState([]);
+    const [userDashSummary, setUserDashSummary] = useState(null);
+    const [userDashMetrics, setUserDashMetrics] = useState({ netAssetValue: 0, realizedPnL: 0, unrealizedPnL: 0, holdingValue: 0, completedTrades: 0 });
+
+    const openUserDashboard = async (user) => {
+        setViewingUser(user);
+        setShowUserDashboardModal(true);
+        setUserDashLoading(true);
+        try {
+            const mob = user.mob_num;
+            const [allocRes, summaryRes, ledgerRes] = await Promise.all([
+                api.get(`/user-ledger/admin-view/${mob}/allocations`),
+                api.get(`/user-ledger/admin-view/${mob}/ledger-summary`),
+                api.get(`/user-ledger/admin-view/${mob}/ledger-entries`)
+            ]);
+            const validTrades = allocRes.data.filter(t => t.master_trade_id && t.master_trade_id.symbol && !t.master_trade_id.symbol.includes('FUND'));
+            validTrades.sort((a, b) => new Date(b.buy_timestamp) - new Date(a.buy_timestamp));
+            setUserDashTrades(validTrades);
+            setUserDashSummary(summaryRes.data);
+
+            // Process ledger entries
+            const sortedEntries = [...ledgerRes.data].reverse();
+            let currentBal = 0;
+            const withBalance = sortedEntries.map(entry => {
+                currentBal += (entry.amt_cr || 0) - (entry.amt_dr || 0);
+                return { ...entry, runningBalance: currentBal };
+            });
+            setUserDashLedger(withBalance.reverse().slice(0, 5));
+
+            // Compute metrics exactly like Dashboard.js
+            let completed = 0, holdingValue = 0;
+            validTrades.forEach(trade => {
+                if (trade.status === 'CLOSED') completed++;
+                if (trade.status === 'OPEN') {
+                    const baseValue = trade.total_value || (trade.allocation_price * trade.allocation_qty);
+                    const inclusiveValue = baseValue + (trade.buy_brokerage || 0);
+                    holdingValue += inclusiveValue;
+                }
+            });
+
+            setUserDashMetrics({ 
+                netAssetValue: summaryRes.data.totalBalance || 0,
+                realizedPnL: summaryRes.data.previousProfit || 0,
+                unrealizedPnL: summaryRes.data.currentPL || 0,
+                holdingValue: holdingValue,
+                completedTrades: completed 
+            });
+
+        } catch (err) {
+            console.error('Error loading user dashboard:', err);
+            const status = err.response?.status;
+            const msg = err.response?.data?.message || err.response?.data?.msg || err.message;
+            if (status === 404) {
+                alert('⚠️ Server route not found (404). Please restart the backend server and try again.');
+            } else if (status === 403) {
+                alert('⚠️ Access denied (403). Admin privileges required.');
+            } else {
+                alert(`⚠️ Failed to load dashboard: ${msg || 'Unknown error'}. Check server console.`);
+            }
+            // Reset to avoid showing stale zero data
+            setUserDashTrades([]);
+            setUserDashLedger([]);
+            setUserDashSummary(null);
+            setUserDashMetrics({ netAssetValue: 0, realizedPnL: 0, unrealizedPnL: 0, holdingValue: 0, completedTrades: 0 });
+        } finally {
+            setUserDashLoading(false);
+        }
+    };
+
 
     const fetchDashboardData = useCallback(async (isInitial = false) => {
         if (isInitial) setLoading(true);
@@ -649,7 +723,7 @@ const AdminDashboard = () => {
                         </div>
 
                         <div className="box-table-container">
-                            <div className="box-table-header" style={{ gridTemplateColumns: 'minmax(100px, 1fr) 1.5fr 1.2fr 0.8fr 1.2fr 0.8fr 40px 120px', borderBottom: '2px solid var(--primary)', gap: '0' }}>
+                            <div className="box-table-header" style={{ gridTemplateColumns: 'minmax(100px, 1fr) 1.5fr 1.2fr 0.8fr 1.2fr 0.8fr 40px 60px 120px', borderBottom: '2px solid var(--primary)', gap: '0' }}>
                                 <div style={{ textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.1)', padding: '10px 5px' }} onClick={() => requestSort('client_id')}>Client ID {sortConfig.key === 'client_id' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
                                 <div style={{ textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.1)', padding: '10px 5px' }} onClick={() => requestSort('user_name')}>Name {sortConfig.key === 'user_name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
                                 <div style={{ textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.1)', padding: '10px 5px' }} onClick={() => requestSort('mob_num')}>Mobile {sortConfig.key === 'mob_num' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
@@ -657,11 +731,12 @@ const AdminDashboard = () => {
                                 <div style={{ textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.1)', padding: '10px 5px' }} onClick={() => requestSort('current_balance')}>Balance {sortConfig.key === 'current_balance' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
                                 <div style={{ textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.1)', padding: '10px 5px' }} onClick={() => requestSort('status')}>Status {sortConfig.key === 'status' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
                                 <div style={{ textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.1)', padding: '10px 5px' }}>RL</div>
+                                <div style={{ textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.1)', padding: '10px 5px' }}>Display</div>
                                 <div style={{ textAlign: 'center', padding: '10px 5px' }}>Actions</div>
                             </div>
                             {sortedUsers.map(u => (
                                 <div className="box-table-row user-row" key={u._id} style={{ 
-                                    gridTemplateColumns: 'minmax(100px, 1fr) 1.5fr 1.2fr 0.8fr 1.2fr 0.8fr 40px 120px', 
+                                    gridTemplateColumns: 'minmax(100px, 1fr) 1.5fr 1.2fr 0.8fr 1.2fr 0.8fr 40px 60px 120px', 
                                     gap: '0', 
                                     borderLeft: `4px solid ${u.status === 'active' ? 'var(--success)' : 'var(--danger)'}`,
                                     marginBottom: '4px',
@@ -706,6 +781,17 @@ const AdminDashboard = () => {
                                             title="View Ledger"
                                         >
                                             <i className="fas fa-file-invoice"></i>
+                                        </button>
+                                    </div>
+                                    <div className="box-table-cell" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', borderRight: '1px solid var(--border)', padding: '10px 5px' }}>
+                                        <span className="cell-label">Display</span>
+                                        <button
+                                            className="btn"
+                                            style={{ padding: '6px', fontSize: '0.8rem', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                            onClick={() => openUserDashboard(u)}
+                                            title={`View ${u.user_name}'s Dashboard`}
+                                        >
+                                            <i className="fas fa-desktop"></i>
                                         </button>
                                     </div>
                                     <div className="box-table-cell" style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center', padding: '10px 5px' }}>
@@ -1872,7 +1958,99 @@ const AdminDashboard = () => {
                    {renderContent()}
                 </div>
             </div>
+
+            {/* ===== User Dashboard Preview Modal ===== */}
+            {showUserDashboardModal && viewingUser && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.75)', display: 'flex',
+                    alignItems: 'flex-start', justifyContent: 'center',
+                    zIndex: 2000, overflowY: 'auto', padding: '20px'
+                }}>
+                    <div style={{
+                        background: 'var(--bg-body)', borderRadius: '16px',
+                        width: '100%', maxWidth: '1100px',
+                        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+                        border: '1px solid var(--border)',
+                        marginTop: '20px', marginBottom: '20px'
+                    }}>
+                        {/* Modal Header */}
+                        <div style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            padding: '1.5rem 2rem',
+                            borderBottom: '2px solid var(--primary)',
+                            background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1))',
+                            borderRadius: '16px 16px 0 0'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{
+                                    width: '40px', height: '40px', borderRadius: '50%',
+                                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    color: 'white', fontWeight: '800', fontSize: '1rem'
+                                }}>
+                                    {viewingUser.user_name?.charAt(0)?.toUpperCase() || 'U'}
+                                </div>
+                                <div>
+                                    <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700' }}>
+                                        {viewingUser.user_name}'s Dashboard
+                                    </h2>
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                        <i className="fas fa-eye" style={{ marginRight: '4px', color: '#8b5cf6' }}></i>
+                                        Admin View · {viewingUser.client_id} · {viewingUser.mob_num}
+                                    </span>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => { setShowUserDashboardModal(false); setViewingUser(null); }}
+                                style={{
+                                    background: 'rgba(239,68,68,0.15)', border: '1px solid var(--danger)',
+                                    color: 'var(--danger)', borderRadius: '8px',
+                                    padding: '8px 16px', cursor: 'pointer', fontWeight: '600',
+                                    display: 'flex', alignItems: 'center', gap: '6px'
+                                }}
+                            >
+                                <i className="fas fa-times"></i> Close
+                            </button>
+                        </div>
+
+                        <div style={{ padding: '2rem' }}>
+                            {userDashLoading ? (
+                                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '60px', flexDirection: 'column', gap: '16px' }}>
+                                    <div style={{
+                                        width: '48px', height: '48px', border: '3px solid var(--border)',
+                                        borderTop: '3px solid #6366f1', borderRadius: '50%',
+                                        animation: 'spin 0.8s linear infinite'
+                                    }}></div>
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Loading dashboard data...</span>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Metrics Grid */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                                        {[
+                                            { label: 'Net Asset Value', value: `₹ ${userDashMetrics.netAssetValue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`, color: '#6366f1', icon: 'fa-wallet' },
+                                            { label: 'Realized P&L', value: `${userDashMetrics.realizedPnL >= 0 ? '+' : ''}₹ ${userDashMetrics.realizedPnL?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`, color: userDashMetrics.realizedPnL >= 0 ? 'var(--success)' : 'var(--danger)', icon: 'fa-chart-line' },
+                                            { label: 'Unrealized P&L', value: `${userDashMetrics.unrealizedPnL >= 0 ? '+' : ''}₹ ${userDashMetrics.unrealizedPnL?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`, color: userDashMetrics.unrealizedPnL >= 0 ? 'var(--success)' : 'var(--danger)', icon: 'fa-chart-area' },
+                                            { label: 'Holding Value', value: `₹ ${userDashMetrics.holdingValue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`, color: 'var(--warning)', icon: 'fa-layer-group' }
+                                        ].map((m, i) => (
+                                            <div key={i} className="card" style={{ borderLeft: `4px solid ${m.color}`, padding: '1.2rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                                    <i className={`fas ${m.icon}`} style={{ color: m.color, fontSize: '0.85rem' }}></i>
+                                                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{m.label}</span>
+                                                </div>
+                                                <div style={{ fontSize: '1.3rem', fontWeight: '800', color: m.color }}>{m.value}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </Layout>
     );
 };
-export default AdminDashboard;
+export default AdminDashboard;

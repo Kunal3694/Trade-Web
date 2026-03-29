@@ -11,6 +11,7 @@ const excelRoutes = require('./routes/excelRoutes');
 const ruleRoutes = require("./routes/ruleRoutes");
 const userLedgerRoutes = require("./routes/userLedgerRoutes");
 const contactRoutes = require("./routes/contactRoutes");
+const adminUserViewRoutes = require("./routes/adminUserViewRoutes");
 const { authMiddleware } = require("./middleware/authMiddleware");
 
 // Load env vars
@@ -52,6 +53,7 @@ app.use('/api/contact', contactRoutes);
 console.log("[DEBUG] Registered /api/contact");
 app.use('/api/user-ledger', userLedgerRoutes);
 app.use('/api/reports', excelRoutes);
+app.use('/api/admin/user-view', adminUserViewRoutes);
 
 // Basic Route for testing
 app.get('/', (req, res) => {

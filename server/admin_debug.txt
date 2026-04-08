@@ -1,0 +1,12 @@
+[
+  {
+    "_id": "69b93618df0b618602176686",
+    "user_name": "Super Admin",
+    "mob_num": "1234567890",
+    "password": "$2b$10$SnD2GSez0XJucwkE8sEJHOmcbtovsi/b6MdRisRbnKIJlz/.peZna",
+    "role": "admin",
+    "createdAt": "2026-03-01T10:18:08.173+00:00",
+    "updatedAt": "2026-03-22T08:10:12.054Z",
+    "current_balance": 2948.361
+  }
+]
